@@ -472,7 +472,7 @@ void PlayScene::RenderObstacles() {
 
                     // set up color
                     _get_obs_color(o->style, &red, &green, &blue);
-                    mOurShader->SetTintColor(red, green, blue);
+                    mOurShader->SetTintColor(red, green, blue, 1.f);
 
                     // render box
                     mOurShader->Render(&mvpMat);
@@ -488,7 +488,8 @@ void PlayScene::RenderObstacles() {
                     mOurShader->SetTintColor(
                             SineWave(0.8f, 1.0f, 0.5f, 0.0f),
                             SineWave(0.8f, 1.0f, 0.5f, 0.0f),
-                            SineWave(0.8f, 1.0f, 0.5f, 0.0f));  // shimmering color
+                            SineWave(0.8f, 1.0f, 0.5f, 0.0f),
+                            1.f);  // shimmering color
                     mOurShader->Render(&mvpMat);            // render
                 }
             }

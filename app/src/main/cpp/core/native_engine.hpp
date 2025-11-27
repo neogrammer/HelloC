@@ -1,14 +1,7 @@
-//
-// Created by jlhar on 11/27/2025.
-//
-
 #ifndef HELLOC_NATIVE_ENGINE_HPP
 #define HELLOC_NATIVE_ENGINE_HPP
 
-
-
-
-
+#include <android/asset_manager.h>
 #include "common.hpp"
 
 struct NativeEngineSavedState {
@@ -30,8 +23,14 @@ public:
     // returns the Android app object
     android_app *GetAndroidApp();
 
+    // returns the asset manager
+    AAssetManager *GetAssetManager();
+
     // returns the (singleton) instance
     static NativeEngine *GetInstance();
+
+    // Returns the NativeActivity object.
+    jobject GetActivity();
 
 private:
     // variables to track Android lifecycle:
@@ -55,11 +54,14 @@ private:
     // android_app structure
     struct android_app *mApp;
 
-    // additional saved state
+    // saved state
     struct NativeEngineSavedState mState;
 
     // JNI environment
     JNIEnv *mJniEnv;
+
+    // Asset manager
+    AAssetManager *mAssetManager;
 
     // is this the first frame we're drawing?
     bool mIsFirstFrame;
@@ -96,7 +98,5 @@ public:
     void HandleCommand(int32_t cmd);
     bool HandleInput(AInputEvent *event);
 };
-
-
 
 #endif //HELLOC_NATIVE_ENGINE_HPP

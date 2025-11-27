@@ -16,11 +16,16 @@ private:
 
 public:
     inline Texture() { mTextureH = 0; }
+    ~Texture();
 
     // Initialize from raw RGB data. If hasAlpha is true, then it's 4 bytes per
     // pixel (RGBA), otherwise it's interpreted as 3 bytes per pixel (RGB).
     void InitFromRawRGB(int width, int height, bool hasAlpha,
                         const unsigned char *data);
+
+    // Initialize from an asset.
+    void InitFromAsset(const char* assetName);
+
     void Bind(int unit);
     void Unbind();
 };

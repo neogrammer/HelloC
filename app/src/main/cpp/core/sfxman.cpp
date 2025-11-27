@@ -48,8 +48,11 @@ SfxMan::SfxMan() {
     LOGD("SfxMan: initializing.");
     mPlayerBufferQueue = NULL;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     // create engine
     result = slCreateEngine(&engineObject, 0, NULL, 0, NULL, NULL);
+#pragma clang diagnostic pop
     if (_checkError(result, "creating engine")) return;
 
     // realize the engine

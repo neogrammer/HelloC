@@ -1,7 +1,3 @@
-//
-// Created by jlhar on 11/27/2025.
-//
-
 #ifndef HELLOC_UTIL_HPP
 #define HELLOC_UTIL_HPP
 
@@ -95,8 +91,12 @@ public:
         mHasMax = true;
     }
     float ReadDelta() {
-        float d = Clamp(Clock() - mLastTick, 0.0f, mMaxDelta);
-        mLastTick = Clock();
+        float now = Clock();
+        float d = now - mLastTick;
+        mLastTick = now;
+        if (mHasMax) {
+            return Clamp(d, 0.0f, mMaxDelta);
+        }
         return d;
     }
     void SetMaxDelta(float m) { mMaxDelta = m; }

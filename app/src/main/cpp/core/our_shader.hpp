@@ -1,39 +1,43 @@
-//
-// Created by jlhar on 11/27/2025.
-//
-
 #ifndef HELLOC_OUR_SHADER_HPP
 #define HELLOC_OUR_SHADER_HPP
 
+#include "shader.hpp"
+#include "texture.hpp"
 
-
-#include "engine.hpp"
-
-// An OpenGL shader that can apply a texture and a point light.
-// We use to to render the tunnel and the obstacles.
+// A shader that can render geometry with color and texture.
+// This is the "main" shader in the game.
 class OurShader : public Shader {
-protected:
+private:
     GLint mColorLoc;
+    GLint mTintLoc;
+    GLint mSamplerLoc;
     GLint mTexCoordLoc;
-    int mTintLoc;
-    int mSamplerLoc;
-    int mPointLightPosLoc;
-    int mPointLightColorLoc;
+    GLint mPointLightPosLoc;
+    GLint mPointLightColorLoc;
 
 public:
     OurShader();
-    virtual ~OurShader();
-    virtual void Compile();
-    void SetTexture(Texture *t);
-    void SetTintColor(float r, float g, float b);
+    ~OurShader() override;
+    void Compile() override;
+
+    // Sets the tint color. This is multiplied by the vertex color and texture color.
+    void SetTintColor(float r, float g, float b, float a);
+
+    // Sets the texture.
+    void SetTexture(Texture* t);
+
+    // Enables a point light.
     void EnablePointLight(glm::vec3 pos, float r, float g, float b);
+
+    // Disables the point light.
     void DisablePointLight();
-    virtual void BeginRender(VertexBuf *geom);
+
+    void BeginRender(VertexBuf* geom) override;
 
 protected:
-    virtual const char *GetVertShaderSource();
-    virtual const char *GetFragShaderSource();
-    virtual const char *GetShaderName();
+    const char* GetVertShaderSource() override;
+    const char* GetFragShaderSource() override;
+    const char* GetShaderName() override;
 };
 
 #endif //HELLOC_OUR_SHADER_HPP

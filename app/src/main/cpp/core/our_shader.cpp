@@ -58,10 +58,10 @@ void OurShader::Compile() {
     UnbindShader();
 }
 
-void OurShader::SetTintColor(float r, float g, float b) {
+void OurShader::SetTintColor(float r, float g, float b, float a) {
     MY_ASSERT(mTintLoc >= 0);
     MY_ASSERT(mPreparedVertexBuf != NULL);
-    glUniform4f(mTintLoc, r, g, b, 1.0f);
+    glUniform4f(mTintLoc, r, g, b, a);
 }
 
 void OurShader::SetTexture(Texture* t) {
@@ -102,7 +102,7 @@ void OurShader::BeginRender(VertexBuf* geom) {
     glEnableVertexAttribArray(mTexCoordLoc);
 
     // set neutral tint color (white) as a default
-    SetTintColor(1.0, 1.0, 1.0);
+    SetTintColor(1.0, 1.0, 1.0, 1.0);
 
     // by default, no point light
     DisablePointLight();

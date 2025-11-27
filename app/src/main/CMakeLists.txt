@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project(helloc  LANGUAGES C CXX)
+project(helloc LANGUAGES C CXX)
 
 add_definitions("-DGLM_FORCE_SIZE_T_LENGTH -DGLM_FORCE_RADIANS")
 
@@ -23,8 +23,6 @@ set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -u ANativeActivity_o
 add_library(helloc
         SHARED
         cpp/helloc.cpp
-        cpp/core/Renderer.cpp
-        cpp/scenes/scene.cpp
         cpp/core/anim.cpp
         cpp/core/ascii_to_geom.cpp
         cpp/scenes/dialog_scene.cpp
@@ -41,24 +39,26 @@ add_library(helloc
         cpp/core/sfxman.cpp
         cpp/core/shader.cpp
         cpp/core/shape_renderer.cpp
-        cpp/core/tex_quad.cpp
         cpp/core/text_renderer.cpp
         cpp/core/texture.cpp
         cpp/scenes/ui_scene.cpp
         cpp/core/util.cpp
         cpp/core/vertexbuf.cpp
         cpp/core/welcome_scene.cpp
+        cpp/scenes/splash_screen_scene.cpp
+        cpp/scenes/title_screen_scene.cpp
 )
 
 target_include_directories(helloc PRIVATE cpp)
 
 target_link_libraries(helloc
     android
-        native_app_glue
-        atomic
-        ${log-lib}
-        EGL
-        GLESv2
-        glm
-        OpenSLES
+    jnigraphics
+    native_app_glue
+    atomic
+    ${log-lib}
+    EGL
+    GLESv2
+    glm
+    OpenSLES
 )

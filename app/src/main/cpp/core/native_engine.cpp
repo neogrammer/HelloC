@@ -5,11 +5,12 @@
 
 #include "native_engine.hpp"
 
+#include <GLES2/gl2.h>
 #include "common.hpp"
 
 #include "joystick-support.hpp"
 #include "scene_manager.hpp"
-#include "welcome_scene.hpp"
+#include "../scenes/splash_screen_scene.hpp"
 #include "input_util.hpp"
 // verbose debug logs on?
 #define VERBOSE_LOGGING 1
@@ -25,14 +26,14 @@
 
 static NativeEngine* _singleton = NULL;
 
-// workaround for internal bug b/149866792
-static NativeEngineSavedState appState = {false};
-
-
+AAssetManager* get_asset_manager() {
+    return NativeEngine::GetInstance()->GetAssetManager();
+}
 
 NativeEngine::NativeEngine(struct android_app* app) {
     LOGD("NativeEngine: initializing.");
     mApp = app;
+    mAssetManager = app->activity->assetManager;
     mHasFocus = mIsVisible = mHasWindow = false;
     mHasGLObjects = false;
     mEglDisplay = EGL_NO_DISPLAY;
@@ -125,6 +126,14 @@ JNIEnv* NativeEngine::GetJniEnv() {
     return mJniEnv;
 }
 
+jobject NativeEngine::GetActivity() {
+    return mApp->activity->clazz;
+}
+
+AAssetManager* NativeEngine::GetAssetManager() {
+    return mAssetManager;
+}
+
 void NativeEngine::HandleCommand(int32_t cmd) {
     SceneManager* mgr = SceneManager::GetInstance();
 
@@ -143,18 +152,10 @@ void NativeEngine::HandleCommand(int32_t cmd) {
                     VLOGD("NativeEngine: APP_CMD_INIT_WINDOW");
             if (mApp->window != NULL) {
                 mHasWindow = true;
-                if (mApp->savedStateSize == sizeof(mState) &&
-                    mApp->savedState != nullptr) {
-                    mState = *((NativeEngineSavedState*)mApp->savedState);
-                    mHasFocus = mState.mHasFocus;
-                } else {
-                    // Workaround APP_CMD_GAINED_FOCUS issue where the focus state is not
-                    // passed down from NativeActivity when restarting Activity
-                    mHasFocus = appState.mHasFocus;
+                if (mApp->savedState != NULL) {
+                    mHasFocus = ((NativeEngineSavedState*)mApp->savedState)->mHasFocus;
                 }
             }
-                    VLOGD("HandleCommand(%d): hasWindow = %d, hasFocus = %d", cmd,
-                          mHasWindow ? 1 : 0, mHasFocus ? 1 : 0);
             break;
         case APP_CMD_TERM_WINDOW:
             // The window is going away -- kill the surface
@@ -165,12 +166,12 @@ void NativeEngine::HandleCommand(int32_t cmd) {
         case APP_CMD_GAINED_FOCUS:
                     VLOGD("NativeEngine: APP_CMD_GAINED_FOCUS");
             mHasFocus = true;
-            mState.mHasFocus = appState.mHasFocus = mHasFocus;
+            mState.mHasFocus = mHasFocus;
             break;
         case APP_CMD_LOST_FOCUS:
                     VLOGD("NativeEngine: APP_CMD_LOST_FOCUS");
             mHasFocus = false;
-            mState.mHasFocus = appState.mHasFocus = mHasFocus;
+            mState.mHasFocus = mHasFocus;
             break;
         case APP_CMD_PAUSE:
                     VLOGD("NativeEngine: APP_CMD_PAUSE");
@@ -211,10 +212,6 @@ void NativeEngine::HandleCommand(int32_t cmd) {
                     VLOGD("NativeEngine: (unknown command).");
             break;
     }
-
-            VLOGD("NativeEngine: STATUS: F%d, V%d, W%d, EGL: D %p, S %p, CTX %p, CFG %p",
-                  mHasFocus, mIsVisible, mHasWindow, mEglDisplay, mEglSurface,
-                  mEglContext, mEglConfig);
 }
 
 static bool _cooked_event_callback(CookedEvent* event) {
@@ -508,6 +505,8 @@ void NativeEngine::DoFrame() {
         return;
     }
 
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     SceneManager* mgr = SceneManager::GetInstance();
 
     // how big is the surface? We query every frame because it's cheap, and some
@@ -530,7 +529,7 @@ void NativeEngine::DoFrame() {
     // if this is the first frame, install the welcome scene
     if (mIsFirstFrame) {
         mIsFirstFrame = false;
-        mgr->RequestNewScene(new WelcomeScene());
+        mgr->RequestNewScene(new SplashScreenScene());
     }
 
     // render!
