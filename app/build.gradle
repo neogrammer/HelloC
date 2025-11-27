@@ -48,7 +48,7 @@ packagingOptions {
 
 
 
-            path file('CMakeLists.txt')
+            path file('src/main/CMakeLists.txt')
             version '3.22.1'
         }
     }
