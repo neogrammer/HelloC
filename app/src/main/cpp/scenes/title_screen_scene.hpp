@@ -1,32 +1,42 @@
 #ifndef HELLOC_TITLE_SCREEN_SCENE_HPP
 #define HELLOC_TITLE_SCREEN_SCENE_HPP
 
-#include "scene.hpp"
-#include "core/tex_quad.hpp"
+#include "../scenes/scene.hpp"
+#include "../core/simplegeom.hpp"
+#include "../core/texture.hpp"
+#include "../core/our_shader.hpp"
+#include "../core/util.hpp"
 
 class TitleScreenScene : public Scene {
 public:
     TitleScreenScene();
     ~TitleScreenScene() override;
 
-//    void OnInstall() override;
-//    void OnUninstall() override;
-//
-//    void OnStartGraphics() override;
-//    void OnKillGraphics() override;
-
+    void OnStartGraphics() override;
+    void OnKillGraphics() override;
     void DoFrame() override;
-
-   // void OnPointerDown(int pointerId, const struct PointerCoords* coords) override;
-   //void OnKeyDown(int ourKeycode) override;
+    void OnPointerDown(int pointerId, const struct PointerCoords* coords) override;
 
 private:
-    TexQuad* mLogoQuad;
     float mAge;
-    bool mFadingOut;
-    bool mTransitionStarted;
+    DeltaClock mClock;
+    bool mSkipFade;
 
-    void TransitionToTitle();
+    // background
+    SimpleGeom* mBgGeom;
+    Texture* mBgTexture;
+
+    // title text
+    SimpleGeom* mTitleGeom;
+    Texture* mTitleTexture;
+
+    // buttons
+    SimpleGeom* mPlayButtonGeom;
+    Texture* mPlayButtonTexture;
+    SimpleGeom* mOptionsButtonGeom;
+    Texture* mOptionsButtonTexture;
+
+    OurShader* mShader;
 };
 
 #endif //HELLOC_TITLE_SCREEN_SCENE_HPP

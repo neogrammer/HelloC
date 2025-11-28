@@ -64,6 +64,7 @@ public:
     virtual void OnResume();
 
     // Destructor
+    Scene();
     virtual ~Scene();
 };
 

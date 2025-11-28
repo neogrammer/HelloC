@@ -14,6 +14,7 @@
 #include "core/shader.hpp"
 #include "core/text_renderer.hpp"
 #include "core/shape_renderer.hpp"
+#include "scene.hpp"
 
 #define UI_DIR_UP 0
 #define UI_DIR_RIGHT 1

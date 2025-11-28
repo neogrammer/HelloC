@@ -25,16 +25,11 @@ add_library(helloc
         cpp/helloc.cpp
         cpp/core/anim.cpp
         cpp/core/ascii_to_geom.cpp
-        cpp/scenes/dialog_scene.cpp
         cpp/core/indexbuf.cpp
         cpp/core/input_util.cpp
         cpp/core/jni_util.cpp
         cpp/core/native_engine.cpp
-        cpp/core/obstacle.cpp
-        cpp/core/obstacle_generator.cpp
         cpp/core/our_shader.cpp
-        cpp/scenes/play_scene.cpp
-        cpp/scenes/scene.cpp
         cpp/core/scene_manager.cpp
         cpp/core/sfxman.cpp
         cpp/core/shader.cpp
@@ -44,9 +39,10 @@ add_library(helloc
         cpp/scenes/ui_scene.cpp
         cpp/core/util.cpp
         cpp/core/vertexbuf.cpp
-        cpp/core/welcome_scene.cpp
         cpp/scenes/splash_screen_scene.cpp
         cpp/scenes/title_screen_scene.cpp
+        cpp/scenes/scene.cpp
+        cpp/scenes/play_scene.cpp
 )
 
 target_include_directories(helloc PRIVATE cpp)

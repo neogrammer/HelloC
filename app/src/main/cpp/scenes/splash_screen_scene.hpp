@@ -6,7 +6,7 @@
 #include "../core/simplegeom.hpp"
 #include "../core/texture.hpp"
 #include "../core/util.hpp"
-
+class OurShader;
 class SplashScreenScene : public Scene {
 public:
     SplashScreenScene();

@@ -34,10 +34,9 @@ SplashScreenScene::SplashScreenScene() : mClock() {
 }
 
 SplashScreenScene::~SplashScreenScene() {
-    // GL objects should be deleted in OnKillGraphics
-    MY_ASSERT(mLogoGeom == nullptr);
-    MY_ASSERT(mLogoTexture == nullptr);
-    MY_ASSERT(mShader == nullptr);
+    CleanUp(&mLogoGeom);
+    CleanUp(&mLogoTexture);
+    CleanUp(&mShader);
 }
 
 void SplashScreenScene::OnInstall() {
@@ -59,7 +58,6 @@ void SplashScreenScene::OnStartGraphics() {
     mLogoGeom = new SimpleGeom(vbuf, ibuf);
 
     // Create the texture for the logo
-    // TODO: Replace "textures/my_logo.png" with the actual path to your logo image.
     mLogoTexture = new Texture();
     mLogoTexture->InitFromAsset("textures/my_logo.png");
 
@@ -69,12 +67,9 @@ void SplashScreenScene::OnStartGraphics() {
 }
 
 void SplashScreenScene::OnKillGraphics() {
-    delete mLogoGeom;
-    mLogoGeom = nullptr;
-    delete mLogoTexture;
-    mLogoTexture = nullptr;
-    delete mShader;
-    mShader = nullptr;
+    CleanUp(&mLogoGeom);
+    CleanUp(&mLogoTexture);
+    CleanUp(&mShader);
 }
 
 void SplashScreenScene::DoFrame() {
@@ -111,12 +106,14 @@ void SplashScreenScene::DoFrame() {
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     mShader->BeginRender(mLogoGeom->vbuf);
     mShader->SetTintColor(1.0f, 1.0f, 1.0f, alpha);
     mShader->SetTexture(mLogoTexture);
     glm::mat4 identityMat(1.0f);
     mShader->Render(mLogoGeom->ibuf, &identityMat);
     mShader->EndRender();
+
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
 }
