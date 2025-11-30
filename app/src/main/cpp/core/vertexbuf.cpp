@@ -1,16 +1,16 @@
-//
-// Created by jlhar on 11/27/2025.
-//
-
 #include "vertexbuf.hpp"
 
-VertexBuf::VertexBuf(GLfloat* geomData, int dataSize, int stride) {
+VertexBuf::VertexBuf(GLfloat* geomData, int dataSize, int stride)
+    : VertexBuf(geomData, dataSize, stride, 0, 0) {} // Delegate to new constructor
+
+VertexBuf::VertexBuf(GLfloat* geomData, int dataSize, int stride, int colorsOffset, int texCoordsOffset) {
     MY_ASSERT(dataSize % stride == 0);
 
     mPrimitive = GL_TRIANGLES;
     mVbo = 0;
     mStride = stride;
-    mColorsOffset = mTexCoordsOffset = 0;
+    mColorsOffset = colorsOffset;
+    mTexCoordsOffset = texCoordsOffset;
     mCount = dataSize / stride;
 
     // build VBO

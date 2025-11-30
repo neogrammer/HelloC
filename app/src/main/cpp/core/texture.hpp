@@ -1,10 +1,5 @@
-//
-// Created by jlhar on 11/27/2025.
-//
-
 #ifndef HELLOC_TEXTURE_HPP
 #define HELLOC_TEXTURE_HPP
-
 
 
 #include "common.hpp"
@@ -13,9 +8,11 @@
 class Texture {
 private:
     GLuint mTextureH;
+    int mWidth;
+    int mHeight;
 
 public:
-    inline Texture() { mTextureH = 0; }
+    inline Texture() { mTextureH = 0; mWidth = 0; mHeight = 0; }
     ~Texture();
 
     // Initialize from raw RGB data. If hasAlpha is true, then it's 4 bytes per
@@ -28,6 +25,9 @@ public:
 
     void Bind(int unit);
     void Unbind();
+
+    int GetWidth() const { return mWidth; }
+    int GetHeight() const { return mHeight; }
 };
 
 

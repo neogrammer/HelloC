@@ -43,6 +43,7 @@ add_library(helloc
         cpp/scenes/title_screen_scene.cpp
         cpp/scenes/scene.cpp
         cpp/scenes/play_scene.cpp
+        cpp/core/sprite.cpp
 )
 
 target_include_directories(helloc PRIVATE cpp)

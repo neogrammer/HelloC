@@ -1,7 +1,3 @@
-//
-// Created by jlhar on 11/27/2025.
-//
-
 #ifndef HELLOC_VERTEXBUF_HPP
 #define HELLOC_VERTEXBUF_HPP
 
@@ -19,6 +15,8 @@ private:
 
 public:
     VertexBuf(GLfloat *geomData, int dataSize, int stride);
+    // New constructor with color and texture offsets
+    VertexBuf(GLfloat *geomData, int dataSize, int stride, int colorsOffset, int texCoordsOffset);
     ~VertexBuf();
 
     void BindBuffer();

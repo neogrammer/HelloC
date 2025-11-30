@@ -63,6 +63,8 @@ void Texture::InitFromAsset(const char* assetName) {
 
 void Texture::InitFromRawRGB(int width, int height, bool hasAlpha,
                              const unsigned char* data) {
+    mWidth = width;
+    mHeight = height;
     GLenum format = hasAlpha ? GL_RGBA : GL_RGB;
 
     glGenTextures(1, &mTextureH);
