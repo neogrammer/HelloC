@@ -158,7 +158,7 @@ void NativeEngine::HandleCommand(int32_t cmd) {
                     mHasFocus = ((NativeEngineSavedState*)mApp->savedState)->mHasFocus;
                 }
 
-                SfxMan::GetInstance()->Init();
+                SfxMan::GetInstance()->Init(mApp->activity->assetManager);
             }
             break;
         case APP_CMD_TERM_WINDOW:
@@ -171,11 +171,13 @@ void NativeEngine::HandleCommand(int32_t cmd) {
                     VLOGD("NativeEngine: APP_CMD_GAINED_FOCUS");
             mHasFocus = true;
             mState.mHasFocus = mHasFocus;
+            SfxMan::GetInstance()->StartMusic();
             break;
         case APP_CMD_LOST_FOCUS:
                     VLOGD("NativeEngine: APP_CMD_LOST_FOCUS");
             mHasFocus = false;
             mState.mHasFocus = mHasFocus;
+            SfxMan::GetInstance()->StopMusic();
             break;
         case APP_CMD_PAUSE:
                     VLOGD("NativeEngine: APP_CMD_PAUSE");
@@ -257,6 +259,7 @@ static bool _cooked_event_callback(CookedEvent* event) {
 }
 
 bool NativeEngine::HandleInput(AInputEvent* event) {
+    SfxMan::GetInstance()->PlaySfx("sounds/test_sound.wav");
     return CookEvent(event, _cooked_event_callback);
 }
 

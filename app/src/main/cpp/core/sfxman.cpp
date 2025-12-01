@@ -3,309 +3,290 @@
 //
 
 #include "sfxman.hpp"
-#include "native_engine.hpp"
 #include "util.hpp"
-#include <random>
-#include <cassert>
+#include <memory> // For std::make_unique
 
-#define SAMPLES_PER_SEC 8000
-#define BUF_SAMPLES_MAX SAMPLES_PER_SEC * 5  // 5 seconds
-#define DEFAULT_VOLUME 0.9f
+// Define these before including dr_wav.h
+#define DR_WAV_NO_STDIO
+#define DR_WAV_IMPLEMENTATION
+#include "../third_party/dr_wav.h"
 
 static SfxMan* _instance = nullptr;
-static short _sample_buf[BUF_SAMPLES_MAX];
-static volatile bool _bufferActive = false;
+
+// Custom I/O callbacks for dr_wav to read directly from an AAsset.
+size_t onRead(void* pUserData, void* pBufferOut, size_t bytesToRead) {
+    return AAsset_read((AAsset*)pUserData, pBufferOut, bytesToRead);
+}
+
+drwav_bool32 onSeek(void* pUserData, int offset, drwav_seek_origin origin) {
+    return AAsset_seek((AAsset*)pUserData, offset, ((origin == DRWAV_SEEK_SET) ? SEEK_SET : SEEK_CUR)) != -1;
+}
+
+// --- WavAssetDataSource Implementation ---
+
+WavAssetDataSource::WavAssetDataSource(AAssetManager* assetManager, const char* path) {
+    AAsset* asset = AAssetManager_open(assetManager, path, AASSET_MODE_RANDOM);
+    if (!asset) {
+        LOGE("WavAssetDataSource: Failed to open asset %s", path);
+        mWav = nullptr;
+        return;
+    }
+
+    mWav = new drwav();
+    if (!drwav_init(mWav, onRead, onSeek, nullptr, asset, nullptr)) {
+        LOGE("WavAssetDataSource: Failed to init WAV file %s", path);
+        AAsset_close(asset);
+        delete mWav;
+        mWav = nullptr;
+        return;
+    }
+    LOGI("WavAssetDataSource: Opened %s, Channels: %u, Sample Rate: %u", path, getChannelCount(), getSampleRate());
+}
+
+WavAssetDataSource::~WavAssetDataSource() {
+    if (mWav) {
+        drwav_uninit(mWav);
+        delete mWav;
+        mWav = nullptr;
+    }
+}
+
+void WavAssetDataSource::setVolume(float volume) {
+    mVolume.store(volume);
+}
+
+int32_t WavAssetDataSource::getChannelCount() const { return mWav ? mWav->channels : 0; }
+int32_t WavAssetDataSource::getSampleRate() const { return mWav ? mWav->sampleRate : 0; }
+
+//
+// THIS IS THE CORRECT, RESTORED FUNCTION FOR THE MUSIC STREAM
+//
+oboe::DataCallbackResult WavAssetDataSource::onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int32_t numFrames) {
+    if (!isValid()) return oboe::DataCallbackResult::Stop;
+
+    int16_t* outputBuffer = static_cast<int16_t*>(audioData);
+    int32_t framesRead = drwav_read_pcm_frames_s16(mWav, numFrames, outputBuffer);
+
+    // Apply volume by directly modifying the buffer
+    float volume = mVolume.load();
+    if (volume < 1.0f) { // Optimization: only apply if not full volume
+        for (int i = 0; i < framesRead * getChannelCount(); ++i) {
+            outputBuffer[i] = static_cast<int16_t>(static_cast<float>(outputBuffer[i]) * volume);
+        }
+    }
+
+    // If we reach the end of the file, loop back to the beginning.
+    if (framesRead < numFrames) {
+        drwav_seek_to_pcm_frame(mWav, 0);
+    }
+
+    return oboe::DataCallbackResult::Continue;
+}
+
+// --- SfxDataCallback Implementation ---
+
+SfxDataCallback::SfxDataCallback() = default;
+
+oboe::DataCallbackResult SfxDataCallback::onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int32_t numFrames) {
+    std::lock_guard<std::mutex> lock(mLock); // Protect access to the buffer
+
+    if (!mIsPlaying.load()) {
+        memset(audioData, 0, numFrames * oboeStream->getBytesPerFrame());
+        return oboe::DataCallbackResult::Continue;
+    }
+
+    int32_t framesRemaining = mTotalFrames - mFramesRead;
+    int32_t framesToWrite = std::min(numFrames, framesRemaining);
+
+    // Copy from our own persistent buffer
+    memcpy(audioData, mBuffer.data() + (mFramesRead * mChannelCount), framesToWrite * mChannelCount * sizeof(int16_t));
+
+    mFramesRead += framesToWrite;
+
+    if (mFramesRead >= mTotalFrames) {
+        mIsPlaying.store(false); // Deactivate playback
+        mFramesRead = 0;
+    }
+
+    // Fill remaining part of the buffer with silence
+    if (framesToWrite < numFrames) {
+        int32_t bytesRemaining = (numFrames - framesToWrite) * oboeStream->getBytesPerFrame();
+        uint8_t* bufferPos = static_cast<uint8_t*>(audioData) + (framesToWrite * oboeStream->getBytesPerFrame());
+        memset(bufferPos, 0, bytesRemaining);
+    }
+
+    return oboe::DataCallbackResult::Continue;
+}
+
+void SfxDataCallback::play(const SoundEffect& sfx, float volume) {
+    std::lock_guard<std::mutex> lock(mLock);
+
+    if (mIsPlaying.load()) return; // Don't interrupt a sound that's already playing
+
+    mChannelCount = sfx.channelCount;
+    mTotalFrames = sfx.data.size() / mChannelCount;
+    mFramesRead = 0;
+
+    // Create a persistent copy of the data with volume applied
+    mBuffer.resize(sfx.data.size());
+    for (size_t i = 0; i < sfx.data.size(); ++i) {
+        mBuffer[i] = static_cast<int16_t>(static_cast<float>(sfx.data[i]) * volume);
+    }
+
+    mIsPlaying.store(true); // Activate playback
+}
+
+// --- SfxMan Implementation ---
 
 SfxMan* SfxMan::GetInstance() {
-    if (_instance == nullptr) {
-        _instance = new SfxMan();
-    }
+    if (_instance == nullptr) { _instance = new SfxMan(); }
     return _instance;
 }
 
+SfxMan::SfxMan() = default;
+SfxMan::~SfxMan() { Shutdown(); }
 
-static bool _checkError(SLresult r, const char* what) {
-    if (r != SL_RESULT_SUCCESS) {
-        LOGE("SfxMan: Error %s (result %lu)", what, (long unsigned int)r);
-        return true; // Indicates an error occurred
+bool SfxMan::Init(AAssetManager* assetManager) {
+    if (mInitOk) return true;
+    LOGD("SfxMan: Initializing...");
+    mAssetManager = assetManager;
+
+    // --- Create Music Stream ---
+    mMusicSource = std::make_unique<WavAssetDataSource>(mAssetManager, "music/test_music.wav");
+    if (!mMusicSource->isValid()) {
+        LOGE("SfxMan: Failed to create music data source.");
+        return false;
     }
-    return false;
-}
+    mMusicSource->setVolume(mMusicVolume);
 
-static void _bqPlayerCallback(SLAndroidSimpleBufferQueueItf, void*) {
-    _bufferActive = false;
-}
+    oboe::AudioStreamBuilder musicBuilder;
+    musicBuilder.setDirection(oboe::Direction::Output)
+            ->setPerformanceMode(oboe::PerformanceMode::None)
+            ->setSharingMode(oboe::SharingMode::Shared)
+            ->setFormat(oboe::AudioFormat::I16)
+            ->setChannelCount(mMusicSource->getChannelCount())
+            ->setSampleRate(48000)
+            ->setDataCallback(mMusicSource.get());
 
-SfxMan::SfxMan() {
-    LOGD("SfxMan: constructor called.");
-    mInitOk = false;
-    mSlEngineObj = NULL;
-    mSlEngineItf = NULL;
-    mSlOutputMixObj = NULL;
-    mSlPlayerObj = NULL;
-    mSlPlayItf = NULL;
-    mPlayerBufferQueue = NULL;
-    mSlVolumeItf = NULL; // Make sure to initialize this too
-}
-
-bool SfxMan::IsIdle() { return !_bufferActive; }
-
-static const char* _parseInt(const char* s, int* result) {
-    *result = 0;
-    while (*s >= '0' && *s <= '9') {
-        *result = *result * 10 + (*s - '0');
-        s++;
-    }
-    return s;
-}
-
-static int _synth(int frequency, float amplitude, short* sample_buf,
-                  int samples) {
-    int i;
-
-    for (i = 0; i < samples; i++) {
-        float t = i / (float)SAMPLES_PER_SEC;
-        float v;
-        if (frequency > 0) {
-            v = amplitude * sin(frequency * t * 2 * M_PI) +
-                (amplitude * 0.1f) * sin(frequency * 2 * t * 2 * M_PI);
-        } else {
-            int r = rand();
-            r = r > 0 ? r : -r;
-            v = amplitude * (-0.5f + (r % 1024) / 512.0f);
-        }
-        int value = (int)(v * 32768.0f);
-        sample_buf[i] = value < -32767 ? -32767 : value > 32767 ? 32767 : value;
-
-        if (i > 0 && sample_buf[i - 1] < 0 && sample_buf[i] >= 0) {
-            // start of new wave -- check if we have room for a full period of it
-            int period_samples = (1.0f / frequency) * SAMPLES_PER_SEC;
-            if (i + period_samples >= samples) break;
-        }
+    oboe::Result result = musicBuilder.openStream(mMusicStream);
+    if (result != oboe::Result::OK) {
+        LOGE("SfxMan: Failed to create music stream. Error: %s", oboe::convertToText(result));
+        return false;
     }
 
-    return i;
-}
+    // --- Create SFX Stream ---
+    mSfxCallback = std::make_unique<SfxDataCallback>();
 
-static void _taper(short* sample_buf, int samples) {
-    int i;
-    const float TAPER_SAMPLES_FRACTION = 0.1f;
-    int taper_samples = (int)(TAPER_SAMPLES_FRACTION * samples);
-    for (i = 0; i < taper_samples && i < samples; i++) {
-        float factor = i / (float)taper_samples;
-        sample_buf[i] = (short)((float)sample_buf[i] * factor);
-    }
-    for (i = samples - taper_samples; i < samples; i++) {
-        if (i < 0) continue;
-        float factor = (samples - i) / (float)taper_samples;
-        sample_buf[i] = (short)((float)sample_buf[i] * factor);
-    }
-}
+    oboe::AudioStreamBuilder sfxBuilder;
+    sfxBuilder.setDirection(oboe::Direction::Output)
+            ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
+            ->setSharingMode(oboe::SharingMode::Exclusive)
+            ->setFormat(oboe::AudioFormat::I16)
+            ->setChannelCount(oboe::ChannelCount::Stereo)
+            ->setSampleRate(48000)
+            ->setDataCallback(mSfxCallback.get());
 
-void SfxMan::PlayTone(const char* tone) {
-    if (!mInitOk) {
-        LOGW("SfxMan: not playing sound because initialization failed.");
-        return;
-    }
-    if (_bufferActive) {
-        // can't play -- the buffer is in use
-        LOGW("SfxMan: can't play tone; buffer is active.");
-        return;
+    result = sfxBuilder.openStream(mSfxStream);
+    if (result != oboe::Result::OK) {
+        LOGE("SfxMan: Failed to create SFX stream. Error: %s", oboe::convertToText(result));
+        return false;
     }
 
-    // synth the tone
-    int total_samples = 0;
-    int num_samples;
-    int frequency = 100;
-    int duration = 50;
-    int volume_int;
-    float amplitude = DEFAULT_VOLUME;
+    mSfxStream->requestStart();
 
-    while (*tone) {
-        switch (*tone) {
-            case 'f':
-                // set frequency
-                tone = _parseInt(tone + 1, &frequency);
-                break;
-            case 'd':
-                // set duration
-                tone = _parseInt(tone + 1, &duration);
-                break;
-            case 'a':
-                // set amplitude.
-                tone = _parseInt(tone + 1, &volume_int);
-                amplitude = volume_int / 100.0f;
-                amplitude = amplitude < 0.0f   ? 0.0f
-                                               : amplitude > 1.0f ? 1.0f
-                                                                  : amplitude;
-                break;
-            case '.':
-                // synth
-                num_samples = duration * SAMPLES_PER_SEC / 1000;
-                if (num_samples > (BUF_SAMPLES_MAX - total_samples - 1)) {
-                    num_samples = BUF_SAMPLES_MAX - total_samples - 1;
-                }
-                num_samples = _synth(frequency, amplitude, _sample_buf + total_samples,
-                                     num_samples);
-                total_samples += num_samples;
-                tone++;
-                break;
-            default:
-                // ignore and advance to next character
-                tone++;
-        }
-    }
+    preloadSound("sounds/test_sound.wav");
 
-    SLresult result;
-    int total_size = total_samples * sizeof(short);
-    if (total_size <= 0) {
-        LOGW("Tone is empty. Not playing.");
-        return;
-    }
-
-    _taper(_sample_buf, total_samples);
-
-    _bufferActive = true;
-    result = (*mPlayerBufferQueue)
-            ->Enqueue(mPlayerBufferQueue, _sample_buf, total_size);
-    if (result != SL_RESULT_SUCCESS) {
-        LOGW("SfxMan: warning: failed to enqueue buffer: %lu",
-             (unsigned long)result);
-        return;
-    }
-}
-
-
-bool SfxMan::Init() {
-
-    if (mInitOk){
-        return true;
-    }
-    LOGD("Sfxman: initializing");
-
-    SLresult result;
-
-    const SLEnvironmentalReverbSettings reverbSettings = SL_I3DL2_ENVIRONMENT_PRESET_STONECORRIDOR;
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    result = slCreateEngine(&mSlEngineObj, 0, NULL, 0, NULL, NULL);
-#pragma clang diagnostic pop
-
-    if (_checkError(result, "creating engine")) return false;
-
-    result = (*mSlEngineObj)->Realize(mSlEngineObj, SL_BOOLEAN_FALSE);
-    if (_checkError(result, "realizing engine")) return false;
-
-    result = (*mSlEngineObj)->GetInterface(mSlEngineObj, SL_IID_ENGINE, &mSlEngineItf);
-    if (_checkError(result, "getting engine interface")) return false;
-
-
-    // 4. Create Output Mix
-    LOGD("SfxMan: creating output mix");
-    const SLInterfaceID ids[] = {SL_IID_ENVIRONMENTALREVERB};
-    const SLboolean req[] = {SL_BOOLEAN_FALSE};
-    result = (*mSlEngineItf)->CreateOutputMix(mSlEngineItf, &mSlOutputMixObj, 1, ids, req);
-    if (_checkError(result, "creating output mix")) return false;
-
-
-    result = (*mSlOutputMixObj)->Realize(mSlOutputMixObj, SL_BOOLEAN_FALSE);
-    if (_checkError(result, "realizing output mix")) return false;
-
-    SLEnvironmentalReverbItf outputMixEnvironmentalReverb = NULL;
-    result = (*mSlOutputMixObj)->GetInterface(mSlOutputMixObj, SL_IID_ENVIRONMENTALREVERB, &outputMixEnvironmentalReverb);
-    if (SL_RESULT_SUCCESS == result) {
-        (*outputMixEnvironmentalReverb)->SetEnvironmentalReverbProperties(
-                outputMixEnvironmentalReverb, &reverbSettings);
-    }
-
-
-
-    LOGD("SfxMan: configuring audio source.");
-    SLDataLocator_AndroidSimpleBufferQueue loc_bufq = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 2};
-    SLDataFormat_PCM format_pcm = {
-            SL_DATAFORMAT_PCM, 1, SL_SAMPLINGRATE_16,
-            SL_PCMSAMPLEFORMAT_FIXED_16, SL_PCMSAMPLEFORMAT_FIXED_16,
-            SL_SPEAKER_FRONT_CENTER, SL_BYTEORDER_LITTLEENDIAN
-    };
-    SLDataSource audioSrc = {&loc_bufq, &format_pcm};
-
-    LOGD("SfxMan: configuring audio sink.");
-    SLDataLocator_OutputMix loc_outmix = {SL_DATALOCATOR_OUTPUTMIX, mSlOutputMixObj};
-    SLDataSink audioSnk = {&loc_outmix, NULL};
-
-    LOGD("SfxMan: creating player.");
-    const SLInterfaceID player_ids[] = {SL_IID_BUFFERQUEUE, SL_IID_VOLUME, SL_IID_EFFECTSEND};
-    const SLboolean player_req[] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
-    result = (*mSlEngineItf)->CreateAudioPlayer(mSlEngineItf, &mSlPlayerObj, &audioSrc,
-                                                &audioSnk, 3, player_ids, player_req);
-    if (_checkError(result, "creating audio player")) return false;
-
-    result = (*mSlPlayerObj)->Realize(mSlPlayerObj, SL_BOOLEAN_FALSE);
-    if (_checkError(result, "realizing player")) return false;
-
-    // 5. Get player interfaces and store them in member variables
-    result = (*mSlPlayerObj)->GetInterface(mSlPlayerObj, SL_IID_PLAY, &mSlPlayItf);
-    if (_checkError(result, "getting play interface")) return false;
-
-    result = (*mSlPlayerObj)->GetInterface(mSlPlayerObj, SL_IID_BUFFERQUEUE, &mPlayerBufferQueue);
-    if (_checkError(result, "getting buffer queue interface")) return false;
-
-    result = (*mSlPlayerObj)->GetInterface(mSlPlayerObj, SL_IID_VOLUME, &mSlVolumeItf);
-    if (_checkError(result, "getting volume interface")) return false;
-
-    // 6. Register callback
-    result = (*mPlayerBufferQueue)->RegisterCallback(mPlayerBufferQueue, _bqPlayerCallback, NULL);
-    if (_checkError(result, "registering callback")) return false;
-
-    // 7. Set player to playing state
-    result = (*mSlPlayItf)->SetPlayState(mSlPlayItf, SL_PLAYSTATE_PLAYING);
-    if (_checkError(result, "setting to playing state")) return false;
-
-    LOGI("SfxMan: initialization complete.");
     mInitOk = true;
+    LOGI("SfxMan: Initialization complete.");
     return true;
 }
 
 void SfxMan::Shutdown() {
-    LOGD("SfxMan: shutting down.");
-
-    if (mSlPlayerObj != NULL) {
-        (*mSlPlayerObj)->Destroy(mSlPlayerObj);
-        mSlPlayerObj = NULL;
-        mSlPlayItf = NULL;
-        mPlayerBufferQueue = NULL;
-        mSlVolumeItf = NULL;
-    }
-
-    if (mSlOutputMixObj != NULL) {
-        (*mSlOutputMixObj)->Destroy(mSlOutputMixObj);
-        mSlOutputMixObj = NULL;
-    }
-
-    if (mSlEngineObj != NULL) {
-        (*mSlEngineObj)->Destroy(mSlEngineObj);
-        mSlEngineObj = NULL;
-        mSlEngineItf = NULL;
-    }
-
+    if (!mInitOk) return;
+    LOGD("SfxMan: Shutting down...");
+    StopMusic();
+    if (mMusicStream) mMusicStream->close();
+    if (mSfxStream) mSfxStream->close();
+    mSoundEffects.clear();
     mInitOk = false;
-    LOGI("SfxMan: shutdown complete.");
 }
 
-// Other methods remain empty for now
-void SfxMan::PlaySfx(const char *sfxName) {
-    // TODO
+void SfxMan::StartMusic() {
+    if (mInitOk && mMusicStream && mMusicStream->getState() != oboe::StreamState::Started) {
+        mMusicStream->requestStart();
+        LOGD("SfxMan: Music stream started.");
+    }
 }
 
-void SfxMan::StopSfx() {
-    // TODO
+void SfxMan::StopMusic() {
+    if (mInitOk && mMusicStream && mMusicStream->getState() == oboe::StreamState::Started) {
+        mMusicStream->requestStop();
+        LOGD("SfxMan: Music stream stopped.");
+    }
 }
 
-void SfxMan::SetBgm(const char *bmgName) {
-    // TODO
+void SfxMan::SetMusicVolume(float volume) {
+    if (volume < 0.0f) volume = 0.0f;
+    if (volume > 1.0f) volume = 1.0f;
+    mMusicVolume = volume;
+    if (mMusicSource) {
+        mMusicSource->setVolume(mMusicVolume);
+    }
 }
 
-void SfxMan::EnableBgm(bool enable) {
-    // TODO
+void SfxMan::SetSfxVolume(float volume) {
+    if (volume < 0.0f) volume = 0.0f;
+    if (volume > 1.0f) volume = 1.0f;
+    mSfxVolume = volume;
+}
+
+void SfxMan::preloadSound(const char* soundPath) {
+    AAsset* asset = AAssetManager_open(mAssetManager, soundPath, AASSET_MODE_BUFFER);
+    if (!asset) {
+        LOGE("SfxMan: Could not open sound asset %s", soundPath);
+        return;
+    }
+    size_t assetSize = AAsset_getLength(asset);
+    auto assetBuffer = std::make_unique<uint8_t[]>(assetSize);
+    AAsset_read(asset, assetBuffer.get(), assetSize);
+    AAsset_close(asset);
+
+    SoundEffect sfx;
+    drwav_uint64 totalFrameCount;
+    unsigned int channels;
+
+    int16_t* pcmData = drwav_open_memory_and_read_pcm_frames_s16(assetBuffer.get(), assetSize, &channels, nullptr, &totalFrameCount, nullptr);
+
+    if (pcmData) {
+        sfx.channelCount = channels;
+        sfx.data.assign(pcmData, pcmData + totalFrameCount * sfx.channelCount);
+        mSoundEffects[soundPath] = sfx;
+        LOGI("SfxMan: Preloaded %s, Frames: %llu, Channels: %u", soundPath, totalFrameCount, sfx.channelCount);
+        drwav_free(pcmData, nullptr);
+    } else {
+        LOGE("SfxMan: Failed to decode WAV from memory: %s", soundPath);
+    }
+}
+
+void SfxMan::PlaySfx(const char* soundPath) {
+    if (!mInitOk || !mSfxCallback) return;
+
+    auto it = mSoundEffects.find(soundPath);
+    if (it == mSoundEffects.end()) {
+        LOGW("SfxMan: Sound not preloaded: %s", soundPath);
+        return;
+    }
+
+    const SoundEffect& sfx = it->second;
+
+    if (sfx.channelCount != mSfxStream->getChannelCount()) {
+        LOGE("SfxMan: SFX channel count (%d) does not match stream (%d).", sfx.channelCount, mSfxStream->getChannelCount());
+        return;
+    }
+
+    mSfxCallback->play(sfx, mSfxVolume);
+}
+
+void SfxMan::PlayTone(const char* tone) {
+    // Legacy function, can be left empty
 }

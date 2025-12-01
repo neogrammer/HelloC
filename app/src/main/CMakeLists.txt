@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.22.1)
 project("helloc" LANGUAGES C CXX)
 
+find_package(oboe REQUIRED CONFIG)
+
+
 add_definitions("-DGLM_FORCE_SIZE_T_LENGTH -DGLM_FORCE_RADIANS")
 
 add_library(native_app_glue STATIC
@@ -55,14 +58,16 @@ set(GLM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/glm)
 target_include_directories(helloc PRIVATE cpp
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cpp/third_party
         ${CMAKE_CURRENT_SOURCE_DIR}/cpp/core
         ${CMAKE_CURRENT_SOURCE_DIR}/cpp/data
         ${CMAKE_CURRENT_SOURCE_DIR}/cpp/scenes
         ${CMAKE_CURRENT_SOURCE_DIR}/cpp/glm
         ${GLM_INCLUDE_DIRS}
 )
-
+target_link_options(helloc PRIVATE "-Wl,-z,max-page-size=16384")
 target_link_libraries(helloc
+        PRIVATE
         android
         jnigraphics
         native_app_glue
@@ -71,6 +76,7 @@ target_link_libraries(helloc
         EGL
         GLESv2
         glm
+        oboe::oboe
         OpenSLES
 )
 

@@ -5,72 +5,111 @@
 #ifndef HELLOC_SFXMAN_HPP
 #define HELLOC_SFXMAN_HPP
 
-
-
-#include <SLES/OpenSLES.h>
-#include <SLES/OpenSLES_Android.h>
+// We will add Oboe includes here in the next step
+#include <oboe/Oboe.h>
+#include <map>
+#include <memory>
+#include <utility>
+#include <string>
+#include <atomic>
+#include <vector>
+#include <android/asset_manager.h>
 
 #include "engine.hpp"
 
-/* Sound effect manager. This class is a singleton that manages sound effect
- * playback. Sound effects are defined by recipes (which are strings) that
- * indicate frequencies and durations. See the PlayTone() method for more info.
- * Note: our sfx generation code is very simplistic and lacks a mixer, so
- * only one sound can be playing at any given time. This is not a problematic
- * limitation for this simple sample but, needless to say, doesn't scale well
- * to a more complex game. */
-class SfxMan {
-private:
-    bool mInitOk;
 
-    SLObjectItf mSlPlayerObj;
-    SLPlayItf mSlPlayItf;
-    SLAndroidSimpleBufferQueueItf mPlayerBufferQueue;
 
-    SLObjectItf mSlEngineObj;
-    SLEngineItf mSlEngineItf;
-
-    SLObjectItf mSlOutputMixObj;
-    SLVolumeItf  mSlVolumeItf;
-
+// A data source that streams a WAV file for Oboe
+class WavAssetDataSource : public oboe::AudioStreamDataCallback {
 public:
+    WavAssetDataSource(AAssetManager* assetManager, const char* path);
+    ~WavAssetDataSource();
 
+    oboe::DataCallbackResult onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int32_t numFrames) override;
 
+    int32_t getChannelCount() const;
+    int32_t getSampleRate() const;
+    bool isValid() const { return mWav != nullptr; }
+    void setVolume(float volume);
 
-    SfxMan();
-
-    // Returns the (singleton) instance of SfxMan
-    static SfxMan* GetInstance();
-    /* Play a tone according to the given recipe. The recipe consists of one or
-     * more tones. Tones are separated by periods ('.'):
-     *
-     *    "<tone1>.<tone2>.<tone3>."
-     *
-     * Also, there must be a period at the end of the string.
-     *
-     * Each tone consists of settings separated by spaces. The order of settings
-     * is irrelevant. Possible settings are:
-     *     f<freq>  set frequency to <freq> Hz. 0 means noise.
-     *     d<dur>   set duration to <dur> milliseconds.
-     *     a<amp>   set amplitude to <amp> percent (0-100)
-     *
-     * Example: "d100 f300. d50 f250. a0 d100. a100 d50 f0."
-     * This will play a 300Hz tone for 100ms, followed by a 250Hz tone
-     * for 50 milliseconds, followed by 100ms of silence, followed
-     * by 50 milliseconds of loud random noise. */
-    void PlayTone(const char* tone);
-
-    // Returns whether or not the sound effect pipeline is idle (able to play
-    // a tone right now).
-    bool IsIdle();
-
-    bool Init();
-    void Shutdown();
-    void PlaySfx(const char* sfxName);
-    void StopSfx();
-    void EnableBgm(bool enable);
-    void SetBgm(const char *bmgName);
+private:
+    struct drwav* mWav;
+    std::atomic<float> mVolume{1.f};
 };
 
 
+// A simple struct to hold our loaded sound effect data
+struct SoundEffect {
+    std::vector<int16_t> data;
+    unsigned int channelCount = 0;
+};
+
+class SfxDataCallback : public oboe::AudioStreamDataCallback {
+public:
+    SfxDataCallback();
+
+    oboe::DataCallbackResult onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int32_t numFrames) override;
+    void play(const SoundEffect& sfx, float volume);
+
+private:
+
+    std::mutex mLock;
+    std::vector<int16_t> mBuffer; // <-- THIS WILL HOLD A COPY OF THE SFX DATA
+    std::atomic<bool> mIsPlaying{false};
+    std::atomic<int32_t> mFramesRead{0};
+    int32_t mChannelCount = 0;
+    int32_t mTotalFrames = 0;
+};
+
+
+class SfxMan {
+private:
+    bool mInitOk = false;
+
+    // Oboe audio stream will go here
+    // std::shared_ptr<oboe::AudioStream> mStream;
+
+public:
+    SfxMan();
+    ~SfxMan();
+
+    // Returns the (singleton) instance of SfxMan
+    static SfxMan* GetInstance();
+
+    // Initializes the audio engine
+    bool Init(AAssetManager* assetManager);
+
+    // Shuts down the audio engine
+    void Shutdown();
+
+
+    // Music controls
+    void StartMusic();
+    void StopMusic();
+    void SetMusicVolume(float volume);
+    void SetSfxVolume(float volume);
+    void PlayTone(const char* tone);
+    // SFX controls
+    void PlaySfx(const char* soundPath);
+private:
+
+    void preloadSound(const char* soundPath);
+
+    AAssetManager* mAssetManager = nullptr;
+
+    float mMusicVolume = 0.5f;
+    float mSfxVolume = 1.0f;
+
+    // Stream for background music (callback-driven)
+    std::shared_ptr<oboe::AudioStream> mMusicStream;
+    std::unique_ptr<WavAssetDataSource> mMusicSource;
+
+    // Stream for one-shot sound effects (blocking)
+    std::shared_ptr<oboe::AudioStream> mSfxStream;
+    std::unique_ptr<SfxDataCallback> mSfxCallback;
+    // Storage for preloaded sound effects
+    std::map<std::string, SoundEffect> mSoundEffects;
+};
+
 #endif //HELLOC_SFXMAN_HPP
+

@@ -64,6 +64,8 @@ void PlayScene::OnKeyDown(int ourKeyCode) {
     // Handle key input here
 }
 
+
+
 void PlayScene::OnPointerDown(int pointerId, const struct PointerCoords *coords) {
     // Play a tone when the screen is touched
     SfxMan::GetInstance()->PlayTone("d100 f440.");

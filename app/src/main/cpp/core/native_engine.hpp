@@ -3,6 +3,7 @@
 
 #include <android/asset_manager.h>
 #include "common.hpp"
+#include "sfxman.hpp"
 
 struct NativeEngineSavedState {
     bool mHasFocus;
