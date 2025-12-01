@@ -4,23 +4,28 @@
 #include "texture.hpp"
 #include "vertexbuf.hpp"
 #include "common.hpp"
-
-// Constructor for a sprite that uses the entire texture
-Sprite::Sprite(const std::string& textureName)
-    : mTextureName(textureName),
+#include "int_rect.hpp"
+Sprite::Sprite(OurShader* shader, const std::string& textureName)
+    : mShader(shader),
+      mTexture(nullptr),
+      mGeom(nullptr),
+      mTextureName(textureName),
+      mTextureRect(IntRect{0,0,0,0}),
       mUsesSubRect(false),
       mScale(1.0f, 1.0f),
-      mTexture(nullptr),
-      mGeom(nullptr) {}
+      mPosition(0.0f, 0.0f)
+      {}
 
-// Constructor for a sprite from a sub-rectangle of a texture
-Sprite::Sprite(const std::string& textureName, const IntRect& textureRect)
-    : mTextureName(textureName),
+Sprite::Sprite(OurShader* shader, const std::string& textureName, const IntRect& textureRect)
+    : mShader(shader),
+      mTexture(nullptr),
+      mGeom(nullptr),
+      mTextureName(textureName),
       mTextureRect(textureRect),
       mUsesSubRect(true),
       mScale(1.0f, 1.0f),
-      mTexture(nullptr),
-      mGeom(nullptr) {}
+      mPosition(0.0f, 0.0f)
+      {}
 
 Sprite::~Sprite() {
     KillGraphics();
@@ -57,6 +62,14 @@ void Sprite::SetScale(const glm::vec2& scale) {
     mScale = scale;
 }
 
+void Sprite::SetPosition(float x, float y) {
+    mPosition = glm::vec2(x, y);
+}
+
+void Sprite::SetPosition(const glm::vec2& pos) {
+    mPosition = pos;
+}
+
 void Sprite::UpdateGeometry() {
     if (!mTexture || mTexture->GetWidth() == 0 || mTexture->GetHeight() == 0) {
         return;
@@ -87,21 +100,21 @@ void Sprite::UpdateGeometry() {
     mGeom = new SimpleGeom(vbuf);
 }
 
-void Sprite::Draw(OurShader* shader, const glm::mat4& viewProjMat, float x, float y) {
-    if (!mGeom || !mTexture || !shader) {
+void Sprite::Draw(const glm::mat4& viewProjMat) {
+    if (!mGeom || !mTexture || !mShader) {
         return;
     }
 
     float spriteWidth = mUsesSubRect ? mTextureRect.width : mTexture->GetWidth();
     float spriteHeight = mUsesSubRect ? mTextureRect.height : mTexture->GetHeight();
 
-    glm::mat4 modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
+    glm::mat4 modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(mPosition.x, mPosition.y, 0.0f));
     modelMat = glm::scale(modelMat, glm::vec3(spriteWidth * mScale.x, spriteHeight * mScale.y, 1.0f));
 
     glm::mat4 mvpMat = viewProjMat * modelMat;
 
-    shader->BeginRender(mGeom->vbuf);
-    shader->SetTexture(mTexture);
-    shader->Render(&mvpMat);
-    shader->EndRender();
+    mShader->BeginRender(mGeom->vbuf);
+    mShader->SetTexture(mTexture);
+    mShader->Render(&mvpMat);
+    mShader->EndRender();
 }

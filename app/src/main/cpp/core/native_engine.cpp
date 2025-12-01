@@ -12,6 +12,7 @@
 #include "scene_manager.hpp"
 #include "../scenes/splash_screen_scene.hpp"
 #include "input_util.hpp"
+#include "sfxman.hpp"
 // verbose debug logs on?
 #define VERBOSE_LOGGING 1
 
@@ -152,9 +153,12 @@ void NativeEngine::HandleCommand(int32_t cmd) {
                     VLOGD("NativeEngine: APP_CMD_INIT_WINDOW");
             if (mApp->window != NULL) {
                 mHasWindow = true;
+
                 if (mApp->savedState != NULL) {
                     mHasFocus = ((NativeEngineSavedState*)mApp->savedState)->mHasFocus;
                 }
+
+                SfxMan::GetInstance()->Init();
             }
             break;
         case APP_CMD_TERM_WINDOW:

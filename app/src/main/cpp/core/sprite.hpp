@@ -12,34 +12,36 @@ class Texture;
 
 class Sprite {
 public:
-    // Constructor for a sprite that uses the entire texture
-    Sprite(const std::string& textureName);
-    // Constructor for a sprite from a sub-rectangle of a texture
-    Sprite(const std::string& textureName, const IntRect& textureRect);
+    Sprite(OurShader* shader, const std::string& textureName);
+    Sprite(OurShader* shader, const std::string& textureName, const IntRect& textureRect);
     ~Sprite();
 
     void StartGraphics();
     void KillGraphics();
 
-    // Set the source rectangle for the sprite from its texture
-    void SetTextureRect(const IntRect& rect);
-
-    // Set the scale of the sprite
+    void SetTextureRect(const struct IntRect& rect);
     void SetScale(float x, float y);
     void SetScale(const glm::vec2& scale);
+    void SetPosition(float x, float y);
+    void SetPosition(const glm::vec2& pos);
 
-    void Draw(OurShader* shader, const glm::mat4& viewProjMat, float x, float y);
+    // The clean draw call we want!
+    void Draw(const glm::mat4& viewProjMat);
 
 private:
     void UpdateGeometry();
 
-    std::string mTextureName;
-    IntRect mTextureRect;
-    bool mUsesSubRect; // True if mTextureRect should be used
-    glm::vec2 mScale;
-
+    // Rendering state
+    OurShader* mShader; // Non-owning pointer
     Texture* mTexture;
     SimpleGeom* mGeom;
+
+    // Sprite properties
+    std::string mTextureName;
+    IntRect mTextureRect;
+    bool mUsesSubRect;
+    glm::vec2 mScale;
+    glm::vec2 mPosition;
 };
 
 #endif //HELLOC_SPRITE_HPP

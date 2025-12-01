@@ -3,26 +3,31 @@
 //
 
 #include "sfxman.hpp"
-
+#include "native_engine.hpp"
+#include "util.hpp"
 #include <random>
+#include <cassert>
 
 #define SAMPLES_PER_SEC 8000
 #define BUF_SAMPLES_MAX SAMPLES_PER_SEC * 5  // 5 seconds
 #define DEFAULT_VOLUME 0.9f
 
-static SfxMan* _instance = new SfxMan();
+static SfxMan* _instance = nullptr;
 static short _sample_buf[BUF_SAMPLES_MAX];
 static volatile bool _bufferActive = false;
 
 SfxMan* SfxMan::GetInstance() {
-    return _instance ? _instance : (_instance = new SfxMan());
+    if (_instance == nullptr) {
+        _instance = new SfxMan();
+    }
+    return _instance;
 }
+
 
 static bool _checkError(SLresult r, const char* what) {
     if (r != SL_RESULT_SUCCESS) {
-        LOGW("SfxMan: Error %s (result %lu)", what, (long unsigned int)r);
-        LOGW("DISABLING SOUND!");
-        return true;
+        LOGE("SfxMan: Error %s (result %lu)", what, (long unsigned int)r);
+        return true; // Indicates an error occurred
     }
     return false;
 }
@@ -32,128 +37,15 @@ static void _bqPlayerCallback(SLAndroidSimpleBufferQueueItf, void*) {
 }
 
 SfxMan::SfxMan() {
-    // Note: this initialization code was mostly copied from the NDK audio sample.
-    SLresult result;
-    SLObjectItf engineObject = NULL;
-    SLEngineItf engineEngine;
-    SLObjectItf outputMixObject = NULL;
-    SLEnvironmentalReverbItf outputMixEnvironmentalReverb = NULL;
-    SLObjectItf bqPlayerObject = NULL;
-    SLPlayItf bqPlayerPlay;
-    SLEffectSendItf bqPlayerEffectSend;
-    SLVolumeItf bqPlayerVolume;
-    const SLEnvironmentalReverbSettings reverbSettings =
-            SL_I3DL2_ENVIRONMENT_PRESET_STONECORRIDOR;
-
-    LOGD("SfxMan: initializing.");
+    LOGD("SfxMan: constructor called.");
+    mInitOk = false;
+    mSlEngineObj = NULL;
+    mSlEngineItf = NULL;
+    mSlOutputMixObj = NULL;
+    mSlPlayerObj = NULL;
+    mSlPlayItf = NULL;
     mPlayerBufferQueue = NULL;
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    // create engine
-    result = slCreateEngine(&engineObject, 0, NULL, 0, NULL, NULL);
-#pragma clang diagnostic pop
-    if (_checkError(result, "creating engine")) return;
-
-    // realize the engine
-    result = (*engineObject)->Realize(engineObject, SL_BOOLEAN_FALSE);
-    if (_checkError(result, "realizing engine")) return;
-
-    // get the engine interface, which is needed in order to create other objects
-    result =
-            (*engineObject)->GetInterface(engineObject, SL_IID_ENGINE, &engineEngine);
-    if (_checkError(result, "getting engine interface")) return;
-
-    // create output mix, with einitializingnvironmental reverb specified as a
-    // non-required interface
-    const SLInterfaceID ids[1] = {SL_IID_ENVIRONMENTALREVERB};
-    const SLboolean req[1] = {SL_BOOLEAN_FALSE};
-    result = (*engineEngine)
-            ->CreateOutputMix(engineEngine, &outputMixObject, 1, ids, req);
-    if (_checkError(result, "creating output mix")) return;
-
-    // realize the output mix
-    result = (*outputMixObject)->Realize(outputMixObject, SL_BOOLEAN_FALSE);
-    if (_checkError(result, "realizin goutput mix")) return;
-
-    // get the environmental reverb interface
-    // this could fail if the environmental reverb effect is not available,
-    // either because the feature is not present, excessive CPU load, or
-    // the required MODIFY_AUDIO_SETTINGS permission was not requested and granted
-    result = (*outputMixObject)
-            ->GetInterface(outputMixObject, SL_IID_ENVIRONMENTALREVERB,
-                           &outputMixEnvironmentalReverb);
-    if (SL_RESULT_SUCCESS == result) {
-        result = (*outputMixEnvironmentalReverb)
-                ->SetEnvironmentalReverbProperties(
-                        outputMixEnvironmentalReverb, &reverbSettings);
-    }
-    // ignore unsuccessful result codes for environmental reverb, as it is
-    // optional for this example
-
-    // configure audio source
-    SLDataLocator_AndroidSimpleBufferQueue loc_bufq = {
-            SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 2};
-    SLDataFormat_PCM format_pcm = {
-            SL_DATAFORMAT_PCM,           1,
-            SL_SAMPLINGRATE_8,           SL_PCMSAMPLEFORMAT_FIXED_16,
-            SL_PCMSAMPLEFORMAT_FIXED_16, SL_SPEAKER_FRONT_CENTER,
-            SL_BYTEORDER_LITTLEENDIAN};
-
-    SLDataSource audioSrc = {&loc_bufq, &format_pcm};
-
-    // configure audio sink
-    SLDataLocator_OutputMix loc_outmix = {SL_DATALOCATOR_OUTPUTMIX,
-                                          outputMixObject};
-    SLDataSink audioSnk = {&loc_outmix, NULL};
-
-    // create audio player
-    const SLInterfaceID player_ids[3] = {SL_IID_BUFFERQUEUE, SL_IID_EFFECTSEND,
-            /*SL_IID_MUTESOLO,*/ SL_IID_VOLUME};
-    const SLboolean player_req[3] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE,
-            /*SL_BOOLEAN_TRUE,*/ SL_BOOLEAN_TRUE};
-    result = (*engineEngine)
-            ->CreateAudioPlayer(engineEngine, &bqPlayerObject, &audioSrc,
-                                &audioSnk, 3, player_ids, player_req);
-    if (_checkError(result, "creating audio player")) return;
-
-    // realize the player
-    result = (*bqPlayerObject)->Realize(bqPlayerObject, SL_BOOLEAN_FALSE);
-    assert(SL_RESULT_SUCCESS == result);
-
-    // get the play interface
-    result = (*bqPlayerObject)
-            ->GetInterface(bqPlayerObject, SL_IID_PLAY, &bqPlayerPlay);
-    if (_checkError(result, "realizing audio player")) return;
-
-    // get the buffer queue interface
-    result = (*bqPlayerObject)
-            ->GetInterface(bqPlayerObject, SL_IID_BUFFERQUEUE,
-                           &mPlayerBufferQueue);
-    if (_checkError(result, "getting buffer queue interface")) return;
-
-    // register callback on the buffer queue
-    result = (*mPlayerBufferQueue)
-            ->RegisterCallback(mPlayerBufferQueue, _bqPlayerCallback, NULL);
-    if (_checkError(result, "registering callback on buffer queue")) return;
-
-    // get the effect send interface
-    result = (*bqPlayerObject)
-            ->GetInterface(bqPlayerObject, SL_IID_EFFECTSEND,
-                           &bqPlayerEffectSend);
-    if (_checkError(result, "getting effect send interface")) return;
-
-    // get the volume interface
-    result = (*bqPlayerObject)
-            ->GetInterface(bqPlayerObject, SL_IID_VOLUME, &bqPlayerVolume);
-    if (_checkError(result, "getting volume interface")) return;
-
-    // set the player's state to playing
-    result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_PLAYING);
-    if (_checkError(result, "setting play state to playing")) return;
-
-    LOGD("SfxMan: initialization complete.");
-    mInitOk = true;
+    mSlVolumeItf = NULL; // Make sure to initialize this too
 }
 
 bool SfxMan::IsIdle() { return !_bufferActive; }
@@ -281,4 +173,139 @@ void SfxMan::PlayTone(const char* tone) {
              (unsigned long)result);
         return;
     }
+}
+
+
+bool SfxMan::Init() {
+
+    if (mInitOk){
+        return true;
+    }
+    LOGD("Sfxman: initializing");
+
+    SLresult result;
+
+    const SLEnvironmentalReverbSettings reverbSettings = SL_I3DL2_ENVIRONMENT_PRESET_STONECORRIDOR;
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    result = slCreateEngine(&mSlEngineObj, 0, NULL, 0, NULL, NULL);
+#pragma clang diagnostic pop
+
+    if (_checkError(result, "creating engine")) return false;
+
+    result = (*mSlEngineObj)->Realize(mSlEngineObj, SL_BOOLEAN_FALSE);
+    if (_checkError(result, "realizing engine")) return false;
+
+    result = (*mSlEngineObj)->GetInterface(mSlEngineObj, SL_IID_ENGINE, &mSlEngineItf);
+    if (_checkError(result, "getting engine interface")) return false;
+
+
+    // 4. Create Output Mix
+    LOGD("SfxMan: creating output mix");
+    const SLInterfaceID ids[] = {SL_IID_ENVIRONMENTALREVERB};
+    const SLboolean req[] = {SL_BOOLEAN_FALSE};
+    result = (*mSlEngineItf)->CreateOutputMix(mSlEngineItf, &mSlOutputMixObj, 1, ids, req);
+    if (_checkError(result, "creating output mix")) return false;
+
+
+    result = (*mSlOutputMixObj)->Realize(mSlOutputMixObj, SL_BOOLEAN_FALSE);
+    if (_checkError(result, "realizing output mix")) return false;
+
+    SLEnvironmentalReverbItf outputMixEnvironmentalReverb = NULL;
+    result = (*mSlOutputMixObj)->GetInterface(mSlOutputMixObj, SL_IID_ENVIRONMENTALREVERB, &outputMixEnvironmentalReverb);
+    if (SL_RESULT_SUCCESS == result) {
+        (*outputMixEnvironmentalReverb)->SetEnvironmentalReverbProperties(
+                outputMixEnvironmentalReverb, &reverbSettings);
+    }
+
+
+
+    LOGD("SfxMan: configuring audio source.");
+    SLDataLocator_AndroidSimpleBufferQueue loc_bufq = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 2};
+    SLDataFormat_PCM format_pcm = {
+            SL_DATAFORMAT_PCM, 1, SL_SAMPLINGRATE_16,
+            SL_PCMSAMPLEFORMAT_FIXED_16, SL_PCMSAMPLEFORMAT_FIXED_16,
+            SL_SPEAKER_FRONT_CENTER, SL_BYTEORDER_LITTLEENDIAN
+    };
+    SLDataSource audioSrc = {&loc_bufq, &format_pcm};
+
+    LOGD("SfxMan: configuring audio sink.");
+    SLDataLocator_OutputMix loc_outmix = {SL_DATALOCATOR_OUTPUTMIX, mSlOutputMixObj};
+    SLDataSink audioSnk = {&loc_outmix, NULL};
+
+    LOGD("SfxMan: creating player.");
+    const SLInterfaceID player_ids[] = {SL_IID_BUFFERQUEUE, SL_IID_VOLUME, SL_IID_EFFECTSEND};
+    const SLboolean player_req[] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
+    result = (*mSlEngineItf)->CreateAudioPlayer(mSlEngineItf, &mSlPlayerObj, &audioSrc,
+                                                &audioSnk, 3, player_ids, player_req);
+    if (_checkError(result, "creating audio player")) return false;
+
+    result = (*mSlPlayerObj)->Realize(mSlPlayerObj, SL_BOOLEAN_FALSE);
+    if (_checkError(result, "realizing player")) return false;
+
+    // 5. Get player interfaces and store them in member variables
+    result = (*mSlPlayerObj)->GetInterface(mSlPlayerObj, SL_IID_PLAY, &mSlPlayItf);
+    if (_checkError(result, "getting play interface")) return false;
+
+    result = (*mSlPlayerObj)->GetInterface(mSlPlayerObj, SL_IID_BUFFERQUEUE, &mPlayerBufferQueue);
+    if (_checkError(result, "getting buffer queue interface")) return false;
+
+    result = (*mSlPlayerObj)->GetInterface(mSlPlayerObj, SL_IID_VOLUME, &mSlVolumeItf);
+    if (_checkError(result, "getting volume interface")) return false;
+
+    // 6. Register callback
+    result = (*mPlayerBufferQueue)->RegisterCallback(mPlayerBufferQueue, _bqPlayerCallback, NULL);
+    if (_checkError(result, "registering callback")) return false;
+
+    // 7. Set player to playing state
+    result = (*mSlPlayItf)->SetPlayState(mSlPlayItf, SL_PLAYSTATE_PLAYING);
+    if (_checkError(result, "setting to playing state")) return false;
+
+    LOGI("SfxMan: initialization complete.");
+    mInitOk = true;
+    return true;
+}
+
+void SfxMan::Shutdown() {
+    LOGD("SfxMan: shutting down.");
+
+    if (mSlPlayerObj != NULL) {
+        (*mSlPlayerObj)->Destroy(mSlPlayerObj);
+        mSlPlayerObj = NULL;
+        mSlPlayItf = NULL;
+        mPlayerBufferQueue = NULL;
+        mSlVolumeItf = NULL;
+    }
+
+    if (mSlOutputMixObj != NULL) {
+        (*mSlOutputMixObj)->Destroy(mSlOutputMixObj);
+        mSlOutputMixObj = NULL;
+    }
+
+    if (mSlEngineObj != NULL) {
+        (*mSlEngineObj)->Destroy(mSlEngineObj);
+        mSlEngineObj = NULL;
+        mSlEngineItf = NULL;
+    }
+
+    mInitOk = false;
+    LOGI("SfxMan: shutdown complete.");
+}
+
+// Other methods remain empty for now
+void SfxMan::PlaySfx(const char *sfxName) {
+    // TODO
+}
+
+void SfxMan::StopSfx() {
+    // TODO
+}
+
+void SfxMan::SetBgm(const char *bmgName) {
+    // TODO
+}
+
+void SfxMan::EnableBgm(bool enable) {
+    // TODO
 }

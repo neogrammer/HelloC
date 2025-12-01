@@ -22,14 +22,25 @@
 class SfxMan {
 private:
     bool mInitOk;
+
+    SLObjectItf mSlPlayerObj;
+    SLPlayItf mSlPlayItf;
     SLAndroidSimpleBufferQueueItf mPlayerBufferQueue;
 
+    SLObjectItf mSlEngineObj;
+    SLEngineItf mSlEngineItf;
+
+    SLObjectItf mSlOutputMixObj;
+    SLVolumeItf  mSlVolumeItf;
+
 public:
+
+
+
     SfxMan();
 
     // Returns the (singleton) instance of SfxMan
     static SfxMan* GetInstance();
-
     /* Play a tone according to the given recipe. The recipe consists of one or
      * more tones. Tones are separated by periods ('.'):
      *
@@ -52,6 +63,13 @@ public:
     // Returns whether or not the sound effect pipeline is idle (able to play
     // a tone right now).
     bool IsIdle();
+
+    bool Init();
+    void Shutdown();
+    void PlaySfx(const char* sfxName);
+    void StopSfx();
+    void EnableBgm(bool enable);
+    void SetBgm(const char *bmgName);
 };
 
 

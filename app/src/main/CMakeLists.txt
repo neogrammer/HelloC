@@ -1,21 +1,21 @@
 cmake_minimum_required(VERSION 3.22.1)
-project(helloc LANGUAGES C CXX)
+project("helloc" LANGUAGES C CXX)
 
 add_definitions("-DGLM_FORCE_SIZE_T_LENGTH -DGLM_FORCE_RADIANS")
 
 add_library(native_app_glue STATIC
-    ${ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c)
+        ${ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c)
 target_include_directories(native_app_glue PUBLIC
-    ${ANDROID_NDK}/sources/android/native_app_glue
-    ${CMAKE_CURRENT_SOURCE_DIR}/data)
+        ${ANDROID_NDK}/sources/android/native_app_glue
+        ${CMAKE_CURRENT_SOURCE_DIR}/data)
 
 find_library(log-lib
-    log)
+        log)
+
 
 # Add glm as a library
 add_library(glm INTERFACE)
 target_include_directories(glm INTERFACE cpp/glm)
-
 
 # now build app's shared lib
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++17 -Wall -Werror")
@@ -32,6 +32,8 @@ add_library(helloc
         cpp/core/our_shader.cpp
         cpp/core/scene_manager.cpp
         cpp/core/sfxman.cpp
+        cpp/core/sprite.cpp
+        cpp/core/welcome_scene.cpp
         cpp/core/shader.cpp
         cpp/core/shape_renderer.cpp
         cpp/core/text_renderer.cpp
@@ -43,19 +45,35 @@ add_library(helloc
         cpp/scenes/title_screen_scene.cpp
         cpp/scenes/scene.cpp
         cpp/scenes/play_scene.cpp
-        cpp/core/sprite.cpp
+        cpp/scenes/dialog_scene.cpp
 )
 
-target_include_directories(helloc PRIVATE cpp)
+include(CMakeFindDependencyMacro)
+set(GLM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/glm)
+
+
+target_include_directories(helloc PRIVATE cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cpp/core
+        ${CMAKE_CURRENT_SOURCE_DIR}/cpp/data
+        ${CMAKE_CURRENT_SOURCE_DIR}/cpp/scenes
+        ${CMAKE_CURRENT_SOURCE_DIR}/cpp/glm
+        ${GLM_INCLUDE_DIRS}
+)
 
 target_link_libraries(helloc
-    android
-    jnigraphics
-    native_app_glue
-    atomic
-    ${log-lib}
-    EGL
-    GLESv2
-    glm
-    OpenSLES
+        android
+        jnigraphics
+        native_app_glue
+        atomic
+        ${log-lib}
+        EGL
+        GLESv2
+        glm
+        OpenSLES
 )
+
+
+
+
