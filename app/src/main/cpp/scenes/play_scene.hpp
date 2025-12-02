@@ -2,9 +2,12 @@
 #define HELLOC_PLAY_SCENE_HPP
 
 #include "scene.hpp"
+#include "../world/tilemap.hpp"
+#include "../world/tileset.hpp"
 #include "../core/sprite.hpp"
 #include "../core/our_shader.hpp"
 #include "glm/glm.hpp"
+#include <memory>
 
 class PlayScene : public Scene {
 public:
@@ -27,6 +30,10 @@ private:
 
     OurShader* mOurShader;
     Sprite* mTestSprite;
+    // Replace the old test sprite with our new map objects
+    std::shared_ptr<TileSet> mTileSet;
+    std::unique_ptr<Tilemap> mTileMap;
+
     glm::mat4 mViewProjMat;
 };
 

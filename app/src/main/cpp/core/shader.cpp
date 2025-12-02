@@ -223,6 +223,9 @@ const char* TrivialShader::GetFragShaderSource() {
            "varying vec4 v_Color;          \n"
            "void main()                    \n"
            "{                              \n"
+           "   if ((v_Color.r == 0.0) && (v_Color.g == 0.0) && (v_Color.b == 0.0)) {\n"
+           "      discard;                                                          \n"
+           "    }                          \n"
            "   gl_FragColor = v_Color;     \n"
            "}";
 }

@@ -87,11 +87,18 @@ void Sprite::UpdateGeometry() {
     float u1 = static_cast<float>(sourceRect.left + sourceRect.width) / mTexture->GetWidth();
     float v1 = static_cast<float>(sourceRect.top + sourceRect.height) / mTexture->GetHeight();
 
+//    GLfloat vertices[] = {
+//        -0.5f, -0.5f, 0.0f,   1.0f, 1.0f, 1.0f,   u0, v1,
+//         0.5f, -0.5f, 0.0f,   1.0f, 1.0f, 1.0f,   u1, v1,
+//        -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 1.0f,   u0, v0,
+//         0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 1.0f,   u1, v0,
+//    };
+
     GLfloat vertices[] = {
-        -0.5f, -0.5f, 0.0f,   1.0f, 1.0f, 1.0f,   u0, v1,
-         0.5f, -0.5f, 0.0f,   1.0f, 1.0f, 1.0f,   u1, v1,
-        -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 1.0f,   u0, v0,
-         0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 1.0f,   u1, v0,
+            -0.5f, -0.5f, 0.0f,   1.0f, 1.0f, 1.0f,   u0, v0,
+            0.5f, -0.5f, 0.0f,   1.0f, 1.0f, 1.0f,   u1, v0,
+            -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 1.0f,   u0, v1,
+            0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 1.0f,   u1, v1,
     };
 
     VertexBuf* vbuf = new VertexBuf(vertices, sizeof(vertices), 8 * sizeof(GLfloat), 3 * sizeof(GLfloat), 6 * sizeof(GLfloat));

@@ -23,6 +23,10 @@ public:
     // Initialize from an asset.
     void InitFromAsset(const char* assetName);
 
+
+// This is the new function we need.
+   // bool InitFromBuffer(const unsigned char* buffer, int bufferSize);
+
     void Bind(int unit);
     void Unbind();
 

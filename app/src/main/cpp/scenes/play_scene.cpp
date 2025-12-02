@@ -6,6 +6,8 @@
 
 PlayScene::PlayScene() {
     mOurShader = nullptr;
+    mTileSet = nullptr;
+    mTileMap = nullptr;
     mTestSprite = nullptr;
 }
 
@@ -26,6 +28,13 @@ void PlayScene::OnStartGraphics() {
     mTestSprite->StartGraphics();
     mTestSprite->SetTextureRect(IntRect{0, 0, 120, 120});
     mTestSprite->SetPosition(100, 100);
+    // 1. Create the TileSet with the correct texture and data file paths from your assets
+    mTileSet = std::make_shared<TileSet>("textures/tileset1.png", "data/tileset1.tst");
+
+    // 2. Create the Tilemap, passing it the tileset
+    mTileMap = std::make_unique<Tilemap>("data/tilemap1.tmp", mTileSet);
+    // 3. Load all content. The tilemap will load the tileset, which loads the texture.
+    mTileMap->LoadContent(mOurShader);
 
     UpdateViewProjMatrix();
 }
@@ -47,34 +56,24 @@ void PlayScene::OnScreenResized(int width, int height) {
 }
 
 void PlayScene::UpdateViewProjMatrix() {
-    SceneManager* sm = SceneManager::GetInstance();
-    mViewProjMat = glm::ortho(0.0f, (float)sm->GetScreenWidth(), (float)sm->GetScreenHeight(), 0.0f, -1.0f, 1.0f);
+    float screenWidth = (float)SceneManager::GetInstance()->GetScreenWidth();
+    float screenHeight = (float)SceneManager::GetInstance()->GetScreenHeight();
+    mViewProjMat = glm::ortho(0.0f, screenWidth, screenHeight, 0.0f, -1.0f, 1.0f);
 }
 
 void PlayScene::DoFrame() {
     glClearColor(0.0f, 0.0f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    if (mTestSprite) {
-        mTestSprite->Draw(mViewProjMat);
+    if (mTileMap) {
+        // For 2D rendering, we disable the depth test and rely on the painter's algorithm
+        glDisable(GL_DEPTH_TEST);
+        mTileMap->Render(mViewProjMat);
+        glEnable(GL_DEPTH_TEST);
     }
 }
 
-void PlayScene::OnKeyDown(int ourKeyCode) {
-    // Handle key input here
-}
-
-
-
-void PlayScene::OnPointerDown(int pointerId, const struct PointerCoords *coords) {
-    // Play a tone when the screen is touched
-    SfxMan::GetInstance()->PlayTone("d100 f440.");
-}
-
-void PlayScene::OnPause() {
-    // Handle game pausing here
-}
-
-void PlayScene::OnResume() {
-    // Handle game resuming here
-}
+void PlayScene::OnKeyDown(int ourKeyCode) { /* Do nothing for now */ }
+void PlayScene::OnPointerDown(int pointerId, const struct PointerCoords *coords) { /* Do nothing for now */ }
+void PlayScene::OnPause() { /* Do nothing for now */ }
+void PlayScene::OnResume() { /* Do nothing for now */ }

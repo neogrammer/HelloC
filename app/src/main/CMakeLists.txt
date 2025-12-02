@@ -49,6 +49,9 @@ add_library(helloc
         cpp/scenes/scene.cpp
         cpp/scenes/play_scene.cpp
         cpp/scenes/dialog_scene.cpp
+        cpp/world/tileset.cpp
+        cpp/world/tilemap.cpp
+        cpp/core/asset_manager.cpp
 )
 
 include(CMakeFindDependencyMacro)
@@ -59,6 +62,7 @@ target_include_directories(helloc PRIVATE cpp
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cpp/third_party
+        ${CMAKE_CURRENT_SOURCE_DIR}/cpp/world
         ${CMAKE_CURRENT_SOURCE_DIR}/cpp/core
         ${CMAKE_CURRENT_SOURCE_DIR}/cpp/data
         ${CMAKE_CURRENT_SOURCE_DIR}/cpp/scenes
