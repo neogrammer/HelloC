@@ -24,6 +24,8 @@ public:
     void OnPointerDown(int pointerId, const struct PointerCoords *coords) override;
     void OnPause() override;
     void OnResume() override;
+    void OnInstall() override;
+    void OnUninstall() override;
 
 private:
     void UpdateViewProjMatrix();

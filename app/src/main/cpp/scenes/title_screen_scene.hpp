@@ -16,7 +16,8 @@ public:
     void OnKillGraphics() override;
     void DoFrame() override;
     void OnPointerDown(int pointerId, const struct PointerCoords* coords) override;
-
+    void OnInstall() override;
+    void OnUninstall() override;
 private:
     float mAge;
     DeltaClock mClock;

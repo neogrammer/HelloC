@@ -32,6 +32,8 @@ public:
     bool isValid() const { return mWav != nullptr; }
     void setVolume(float volume);
 
+
+
 private:
     struct drwav* mWav;
     std::atomic<float> mVolume{1.f};
@@ -50,7 +52,6 @@ public:
 
     oboe::DataCallbackResult onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int32_t numFrames) override;
     void play(const SoundEffect& sfx, float volume);
-
 private:
 
     std::mutex mLock;
@@ -72,28 +73,30 @@ private:
 public:
     SfxMan();
     ~SfxMan();
-
+    void play(const SoundEffect& sfx, float volume);
     // Returns the (singleton) instance of SfxMan
     static SfxMan* GetInstance();
-
+    bool LoadMusic(const std::string& name_);
     // Initializes the audio engine
     bool Init(AAssetManager* assetManager);
 
     // Shuts down the audio engine
     void Shutdown();
-
+    void unloadSound(const char* soundPath);
 
     // Music controls
     void StartMusic();
     void StopMusic();
+    void UnloadMusic();
     void SetMusicVolume(float volume);
     void SetSfxVolume(float volume);
     void PlayTone(const char* tone);
     // SFX controls
     void PlaySfx(const char* soundPath);
+    void preloadSound(const char* soundPath);
 private:
 
-    void preloadSound(const char* soundPath);
+
 
     AAssetManager* mAssetManager = nullptr;
 

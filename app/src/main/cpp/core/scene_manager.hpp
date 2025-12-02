@@ -6,7 +6,7 @@
 #define HELLOC_SCENE_MANAGER_HPP
 
 #include "our_key_codes.hpp"
-
+class AInputEvent;
 class Scene;
 
 struct PointerCoords {
@@ -36,6 +36,7 @@ public:
     void SetScreenSize(int width, int height);
     void KillGraphics();
     void StartGraphics();
+    void HandleInput(AInputEvent* event);
 
     // Returns screen width in pixels
     int GetScreenWidth() { return mScreenWidth; }

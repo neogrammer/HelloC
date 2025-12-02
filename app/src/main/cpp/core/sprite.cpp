@@ -33,6 +33,7 @@ Sprite::~Sprite() {
 
 void Sprite::StartGraphics() {
     mTexture = new Texture();
+
     mTexture->InitFromAsset(mTextureName.c_str());
     UpdateGeometry();
 }

@@ -24,15 +24,15 @@ void PlayScene::OnStartGraphics() {
     mOurShader = new OurShader();
     mOurShader->Compile();
 
-    mTestSprite = new Sprite(mOurShader, "textures/my_logo.png");
+    mTestSprite = new Sprite(mOurShader, "my_logo");
     mTestSprite->StartGraphics();
     mTestSprite->SetTextureRect(IntRect{0, 0, 120, 120});
     mTestSprite->SetPosition(100, 100);
     // 1. Create the TileSet with the correct texture and data file paths from your assets
-    mTileSet = std::make_shared<TileSet>("textures/tileset1.png", "data/tileset1.tst");
+    mTileSet = std::make_shared<TileSet>("tileset1", "tileset1");
 
     // 2. Create the Tilemap, passing it the tileset
-    mTileMap = std::make_unique<Tilemap>("data/tilemap1.tmp", mTileSet);
+    mTileMap = std::make_unique<Tilemap>("tilemap1", mTileSet);
     // 3. Load all content. The tilemap will load the tileset, which loads the texture.
     mTileMap->LoadContent(mOurShader);
 
@@ -49,6 +49,8 @@ void PlayScene::OnKillGraphics() {
         delete mOurShader;
         mOurShader = nullptr;
     }
+
+
 }
 
 void PlayScene::OnScreenResized(int width, int height) {
@@ -74,6 +76,22 @@ void PlayScene::DoFrame() {
 }
 
 void PlayScene::OnKeyDown(int ourKeyCode) { /* Do nothing for now */ }
-void PlayScene::OnPointerDown(int pointerId, const struct PointerCoords *coords) { /* Do nothing for now */ }
+void PlayScene::OnPointerDown(int pointerId, const struct PointerCoords *coords) {
+    //SfxMan::GetInstance()->PlaySfx("sounds/test_sound.wav");
+
+}
 void PlayScene::OnPause() { /* Do nothing for now */ }
 void PlayScene::OnResume() { /* Do nothing for now */ }
+
+void PlayScene::OnInstall() {
+
+    SfxMan::GetInstance()->LoadMusic("test_music");
+    SfxMan::GetInstance()->StartMusic();
+    // SfxMan::GetInstance()->preloadSound("sounds/test_sound.wav");
+
+}
+
+void PlayScene::OnUninstall() {
+    SfxMan::GetInstance()->UnloadMusic();
+    //  SfxMan::GetInstance()->unloadSound("sounds/test_sound.wav");
+}

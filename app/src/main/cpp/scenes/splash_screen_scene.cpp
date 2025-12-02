@@ -6,9 +6,10 @@
 #include "../core/vertexbuf.hpp"
 #include "../core/indexbuf.hpp"
 #include "glm/glm.hpp"
+#include "sfxman.hpp"
 
 // 5 seconds for fade in, 5 for fade out.
-const float FADE_TIME = 5.0f;
+const float FADE_TIME = 3.0f;
 
 // vertices for a centered quad, 1/5th of screen width and 1/3rd of screen height
 // Texture coordinates are flipped on the Y axis to fix upside-down rendering.
@@ -40,6 +41,9 @@ SplashScreenScene::~SplashScreenScene() {
 }
 
 void SplashScreenScene::OnInstall() {
+
+   // SfxMan::GetInstance()->LoadMusic("test_music");
+   // SfxMan::GetInstance()->StartMusic();
     mAge = 0.0f;
     mFadingOut = false;
     mTransitionStarted = false;
@@ -47,6 +51,7 @@ void SplashScreenScene::OnInstall() {
 }
 
 void SplashScreenScene::OnUninstall() {
+    //SfxMan::GetInstance()->UnloadMusic();
 }
 
 void SplashScreenScene::OnStartGraphics() {
@@ -59,7 +64,7 @@ void SplashScreenScene::OnStartGraphics() {
 
     // Create the texture for the logo
     mLogoTexture = new Texture();
-    mLogoTexture->InitFromAsset("textures/my_logo.png");
+    mLogoTexture->InitFromAsset("my_logo");
 
     // Create a shader
     mShader = new OurShader();

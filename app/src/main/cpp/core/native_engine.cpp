@@ -261,7 +261,11 @@ static bool _cooked_event_callback(CookedEvent* event) {
 }
 
 bool NativeEngine::HandleInput(AInputEvent* event) {
-    SfxMan::GetInstance()->PlaySfx("sounds/test_sound.wav");
+    SceneManager* mgr = SceneManager::GetInstance();
+    if (mgr)
+    {
+        mgr->HandleInput(event);
+    }
     return CookEvent(event, _cooked_event_callback);
 }
 
@@ -565,6 +569,8 @@ bool NativeEngine::InitGLObjects() {
     }
     return true;
 }
+
+
 
 
 ////

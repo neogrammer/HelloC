@@ -5,7 +5,6 @@
 #include <sstream>
 #include <algorithm>
 #include "../core/asset_manager.hpp"
-#include "../core/shape_renderer.hpp"
 #include "../core/our_shader.hpp"
 #include "../glm/glm.hpp"
 #include "../core/sprite.hpp"
@@ -112,12 +111,11 @@ Tilemap::~Tilemap() {
 
 void Tilemap::LoadContent(OurShader *shader) {
     m_shader = shader;
+    std::string path = "data/";
+    path.append(m_tilemapPath);
+    path.append(".tmp");
 
-    if (m_tileset) {
-        // The tileset loading its own content is fine.
-        m_tileset->LoadContent();
-    }
-    ParseTilemapFile(m_tilemapPath);
+    ParseTilemapFile(path);
 
     // Create and initialize the single sprite we will use for rendering.
     if (m_tileset) { // It's better to check if the tileset exists

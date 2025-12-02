@@ -25,6 +25,7 @@ drwav_bool32 onSeek(void* pUserData, int offset, drwav_seek_origin origin) {
 // --- WavAssetDataSource Implementation ---
 
 WavAssetDataSource::WavAssetDataSource(AAssetManager* assetManager, const char* path) {
+
     AAsset* asset = AAssetManager_open(assetManager, path, AASSET_MODE_RANDOM);
     if (!asset) {
         LOGE("WavAssetDataSource: Failed to open asset %s", path);
@@ -82,7 +83,6 @@ oboe::DataCallbackResult WavAssetDataSource::onAudioReady(oboe::AudioStream *obo
 
     return oboe::DataCallbackResult::Continue;
 }
-
 // --- SfxDataCallback Implementation ---
 
 SfxDataCallback::SfxDataCallback() = default;
@@ -146,33 +146,52 @@ SfxMan* SfxMan::GetInstance() {
 SfxMan::SfxMan() = default;
 SfxMan::~SfxMan() { Shutdown(); }
 
+void SfxMan::unloadSound(const char* soundPath) {
+    auto it = mSoundEffects.find(soundPath);
+
+    // Check if the sound effect exists in our map
+    if (it != mSoundEffects.end()) {
+        // Erase the element from the map. This will call the destructor
+        // for the SoundEffect object, freeing its std::vector<int16_t> data.
+        mSoundEffects.erase(it);
+        LOGI("SfxMan: Unloaded sound: %s", soundPath);
+    } else {
+        LOGW("SfxMan: Attempted to unload a sound that was not preloaded: %s", soundPath);
+    }
+}
+
 bool SfxMan::Init(AAssetManager* assetManager) {
     if (mInitOk) return true;
     LOGD("SfxMan: Initializing...");
     mAssetManager = assetManager;
 
+   // LoadMusic("test_music");
+
+
+    //
+    //
     // --- Create Music Stream ---
-    mMusicSource = std::make_unique<WavAssetDataSource>(mAssetManager, "music/test_music.wav");
-    if (!mMusicSource->isValid()) {
-        LOGE("SfxMan: Failed to create music data source.");
-        return false;
-    }
-    mMusicSource->setVolume(mMusicVolume);
-
-    oboe::AudioStreamBuilder musicBuilder;
-    musicBuilder.setDirection(oboe::Direction::Output)
-            ->setPerformanceMode(oboe::PerformanceMode::None)
-            ->setSharingMode(oboe::SharingMode::Shared)
-            ->setFormat(oboe::AudioFormat::I16)
-            ->setChannelCount(mMusicSource->getChannelCount())
-            ->setSampleRate(48000)
-            ->setDataCallback(mMusicSource.get());
-
-    oboe::Result result = musicBuilder.openStream(mMusicStream);
-    if (result != oboe::Result::OK) {
-        LOGE("SfxMan: Failed to create music stream. Error: %s", oboe::convertToText(result));
-        return false;
-    }
+//    mMusicSource = std::make_unique<WavAssetDataSource>(mAssetManager, "music/test_music.wav");
+//    if (!mMusicSource->isValid()) {
+//        LOGE("SfxMan: Failed to create music data source.");
+//        return false;
+//    }
+//    mMusicSource->setVolume(mMusicVolume);
+//
+//    oboe::AudioStreamBuilder musicBuilder;
+//    musicBuilder.setDirection(oboe::Direction::Output)
+//            ->setPerformanceMode(oboe::PerformanceMode::None)
+//            ->setSharingMode(oboe::SharingMode::Shared)
+//            ->setFormat(oboe::AudioFormat::I16)
+//            ->setChannelCount(mMusicSource->getChannelCount())
+//            ->setSampleRate(48000)
+//            ->setDataCallback(mMusicSource.get());
+//
+//    oboe::Result result = musicBuilder.openStream(mMusicStream);
+//    if (result != oboe::Result::OK) {
+//        LOGE("SfxMan: Failed to create music stream. Error: %s", oboe::convertToText(result));
+//        return false;
+//    }
 
     // --- Create SFX Stream ---
     mSfxCallback = std::make_unique<SfxDataCallback>();
@@ -186,7 +205,7 @@ bool SfxMan::Init(AAssetManager* assetManager) {
             ->setSampleRate(48000)
             ->setDataCallback(mSfxCallback.get());
 
-    result = sfxBuilder.openStream(mSfxStream);
+    oboe::Result result = sfxBuilder.openStream(mSfxStream);
     if (result != oboe::Result::OK) {
         LOGE("SfxMan: Failed to create SFX stream. Error: %s", oboe::convertToText(result));
         return false;
@@ -194,7 +213,7 @@ bool SfxMan::Init(AAssetManager* assetManager) {
 
     mSfxStream->requestStart();
 
-    preloadSound("sounds/test_sound.wav");
+   // preloadSound("sounds/test_sound.wav");
 
     mInitOk = true;
     LOGI("SfxMan: Initialization complete.");
@@ -205,7 +224,10 @@ void SfxMan::Shutdown() {
     if (!mInitOk) return;
     LOGD("SfxMan: Shutting down...");
     StopMusic();
-    if (mMusicStream) mMusicStream->close();
+    if (mMusicStream)
+    {
+        mMusicStream->close();
+    }
     if (mSfxStream) mSfxStream->close();
     mSoundEffects.clear();
     mInitOk = false;
@@ -241,9 +263,12 @@ void SfxMan::SetSfxVolume(float volume) {
 }
 
 void SfxMan::preloadSound(const char* soundPath) {
-    AAsset* asset = AAssetManager_open(mAssetManager, soundPath, AASSET_MODE_BUFFER);
+    std::string path = "sounds/";
+    path.append(std::string(soundPath));
+    path.append(".wav");
+    AAsset* asset = AAssetManager_open(mAssetManager, path.c_str(), AASSET_MODE_BUFFER);
     if (!asset) {
-        LOGE("SfxMan: Could not open sound asset %s", soundPath);
+        LOGE("SfxMan: Could not open sound asset %s", path.c_str());
         return;
     }
     size_t assetSize = AAsset_getLength(asset);
@@ -289,4 +314,56 @@ void SfxMan::PlaySfx(const char* soundPath) {
 
 void SfxMan::PlayTone(const char* tone) {
     // Legacy function, can be left empty
+}
+
+void SfxMan::play(const SoundEffect &sfx, float volume) {
+
+}
+
+bool SfxMan::LoadMusic(const std::string &name_) {
+    if(mMusicSource){
+        LOGE("SfxMan: Music already loaded.");
+        return false;
+    }
+
+
+    std::string fullpath{"music/"};
+    fullpath.append(name_);
+    fullpath.append(".wav");
+    mMusicSource = std::make_unique<WavAssetDataSource>(mAssetManager, fullpath.c_str());
+    if (!mMusicSource->isValid()) {
+        LOGE("SfxMan: Failed to create music data source.");
+        return false;
+    }
+    mMusicSource->setVolume(mMusicVolume);
+
+    oboe::AudioStreamBuilder musicBuilder;
+    musicBuilder.setDirection(oboe::Direction::Output)
+            ->setPerformanceMode(oboe::PerformanceMode::None)
+            ->setSharingMode(oboe::SharingMode::Shared)
+            ->setFormat(oboe::AudioFormat::I16)
+            ->setChannelCount(mMusicSource->getChannelCount())
+            ->setSampleRate(48000)
+            ->setDataCallback(mMusicSource.get());
+
+    oboe::Result result = musicBuilder.openStream(mMusicStream);
+    if (result != oboe::Result::OK) {
+        LOGE("SfxMan: Failed to create music stream. Error: %s", oboe::convertToText(result));
+        return false;
+    }
+
+    return true;
+}
+
+void SfxMan::UnloadMusic() {
+    StopMusic();
+    if (mMusicStream)
+    {
+        mMusicStream->close();
+
+    }
+    if (mMusicSource)
+    {
+        mMusicSource.reset();
+    }
 }

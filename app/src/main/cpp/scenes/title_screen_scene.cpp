@@ -7,9 +7,10 @@
 #include "../core/indexbuf.hpp"
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
+#include "sfxman.hpp"
 
 // 5 seconds for fade in
-const float TITLE_FADE_TIME = 5.0f;
+const float TITLE_FADE_TIME = 2.0f;
 
 // Bounding boxes for buttons (in normalized screen coordinates)
 const float PLAY_BUTTON_LEFT = 0.6f;
@@ -96,7 +97,7 @@ void TitleScreenScene::OnStartGraphics() {
     mBgGeom = new SimpleGeom(bg_vbuf, bg_ibuf);
 
     mBgTexture = new Texture();
-    mBgTexture->InitFromAsset("textures/titleBG.png");
+    mBgTexture->InitFromAsset("titleBG");
 
     // title quad
     VertexBuf* title_vbuf = new VertexBuf(const_cast<GLfloat*>(TITLE_VERTICES), sizeof(TITLE_VERTICES), 8 * sizeof(GLfloat));
@@ -106,7 +107,7 @@ void TitleScreenScene::OnStartGraphics() {
     mTitleGeom = new SimpleGeom(title_vbuf, title_ibuf);
 
     mTitleTexture = new Texture();
-    mTitleTexture->InitFromAsset("textures/title_text.png");
+    mTitleTexture->InitFromAsset("title_text");
 
     // play button quad
     VertexBuf* play_vbuf = new VertexBuf(const_cast<GLfloat*>(PLAY_BUTTON_VERTICES), sizeof(PLAY_BUTTON_VERTICES), 8 * sizeof(GLfloat));
@@ -116,7 +117,7 @@ void TitleScreenScene::OnStartGraphics() {
     mPlayButtonGeom = new SimpleGeom(play_vbuf, play_ibuf);
 
     mPlayButtonTexture = new Texture();
-    mPlayButtonTexture->InitFromAsset("textures/play_button.png");
+    mPlayButtonTexture->InitFromAsset("play_button");
 
     // options button quad
     VertexBuf* options_vbuf = new VertexBuf(const_cast<GLfloat*>(OPTIONS_BUTTON_VERTICES), sizeof(OPTIONS_BUTTON_VERTICES), 8 * sizeof(GLfloat));
@@ -126,7 +127,7 @@ void TitleScreenScene::OnStartGraphics() {
     mOptionsButtonGeom = new SimpleGeom(options_vbuf, options_ibuf);
 
     mOptionsButtonTexture = new Texture();
-    mOptionsButtonTexture->InitFromAsset("textures/options_button.png");
+    mOptionsButtonTexture->InitFromAsset("options_button");
 
     mShader = new OurShader();
     mShader->Compile();
@@ -208,4 +209,18 @@ void TitleScreenScene::OnPointerDown(int pointerId, const struct PointerCoords* 
                touchY >= OPTIONS_BUTTON_BOTTOM && touchY <= OPTIONS_BUTTON_TOP) {
         LOGD("Options button clicked!");
     }
+
+    SfxMan::GetInstance()->PlaySfx("test_sound");
+}
+
+void TitleScreenScene::OnInstall() {
+   // SfxMan::GetInstance()->LoadMusic("test_music");
+  //  SfxMan::GetInstance()->StartMusic();
+  SfxMan::GetInstance()->preloadSound("test_sound");
+
+}
+
+void TitleScreenScene::OnUninstall() {
+  //  SfxMan::GetInstance()->UnloadMusic();
+  SfxMan::GetInstance()->unloadSound("test_sound");
 }

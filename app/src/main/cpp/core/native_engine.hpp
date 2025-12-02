@@ -94,10 +94,12 @@ private:
 
     bool IsAnimating();
 
+
 public:
     // these are public for simplicity because we have internal static callbacks
     void HandleCommand(int32_t cmd);
     bool HandleInput(AInputEvent *event);
+
 };
 
 #endif //HELLOC_NATIVE_ENGINE_HPP

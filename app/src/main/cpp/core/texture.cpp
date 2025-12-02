@@ -11,6 +11,12 @@ Texture::~Texture() {
 }
 
 void Texture::InitFromAsset(const char* assetName) {
+
+    std::string path = "textures/";
+    path.append(std::string(assetName));
+    path.append(".png");
+
+
     JNIEnv* env = NativeEngine::GetInstance()->GetJniEnv();
     jobject activity = NativeEngine::GetInstance()->GetActivity();
     jclass activityClass = env->GetObjectClass(activity);
@@ -24,7 +30,7 @@ void Texture::InitFromAsset(const char* assetName) {
 
     jclass assetManagerClass = env->GetObjectClass(assetManager);
     jmethodID openMethod = env->GetMethodID(assetManagerClass, "open", "(Ljava/lang/String;)Ljava/io/InputStream;");
-    jstring assetNameJString = env->NewStringUTF(assetName);
+    jstring assetNameJString = env->NewStringUTF(path.c_str());
     jobject inputStream = env->CallObjectMethod(assetManager, openMethod, assetNameJString);
     // --- Force ARGB_8888 decoding to preserve transparency ---
     // 1. Create BitmapFactory.Options object
@@ -45,11 +51,11 @@ void Texture::InitFromAsset(const char* assetName) {
     // ---------------------------------------------------------
     //jobject bitmap = env->CallStaticObjectMethod(bitmapFactoryClass, decodeStreamMethod, inputStream);
     if (inputStream == nullptr) {
-        LOGE("Failed to open asset: %s", assetName);
+        LOGE("Failed to open asset: %s", path.c_str());
         return;
     }
     if (bitmap == nullptr) {
-        LOGE("Failed to decode asset: %s", assetName);
+        LOGE("Failed to decode asset: %s", path.c_str());
         return;
     }
 

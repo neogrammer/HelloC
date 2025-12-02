@@ -7,16 +7,22 @@
 TileSet::TileSet(const char* texturePath, const char* tilesetPath)
         :  mTilesetPath(tilesetPath), mTexturePath(std::string(texturePath)),
            mTilesheetTexture(nullptr), mSheetWidthInTiles(0), mSheetHeightInTiles(0) {
+        // The tileset loading its own content is fine.
+        LoadContent();
 }
 
 TileSet::~TileSet() = default;
 
 void TileSet::LoadContent() {
+
     mTilesheetTexture = AssetManager::GetInstance().LoadTexture(mTexturePath);
     if (!mTilesheetTexture) {
         throw std::runtime_error("TileSet failed to load texture: " + mTexturePath);
     }
-    ParseTilesetFile(mTilesetPath);
+    std::string path2 = "data/";
+    path2.append(std::string(mTilesetPath));
+    path2.append(".tst");
+    ParseTilesetFile(path2);
 }
 
 
