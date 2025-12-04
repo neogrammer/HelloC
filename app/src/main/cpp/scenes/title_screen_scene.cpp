@@ -1,5 +1,6 @@
 #include "title_screen_scene.hpp"
 #include "play_scene.hpp"
+#include "login_scene.hpp"
 #include "../common.hpp"
 #include "../core/scene_manager.hpp"
 #include "../core/util.hpp"
@@ -205,6 +206,8 @@ void TitleScreenScene::OnPointerDown(int pointerId, const struct PointerCoords* 
     if (touchX >= PLAY_BUTTON_LEFT && touchX <= PLAY_BUTTON_RIGHT &&
         touchY >= PLAY_BUTTON_BOTTOM && touchY <= PLAY_BUTTON_TOP) {
         SceneManager::GetInstance()->RequestNewScene(new PlayScene());
+
+        // SceneManager::GetInstance()->RequestNewScene(new LoginScene());
     } else if (touchX >= OPTIONS_BUTTON_LEFT && touchX <= OPTIONS_BUTTON_RIGHT &&
                touchY >= OPTIONS_BUTTON_BOTTOM && touchY <= OPTIONS_BUTTON_TOP) {
         LOGD("Options button clicked!");

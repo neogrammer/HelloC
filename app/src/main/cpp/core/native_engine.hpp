@@ -4,6 +4,7 @@
 #include <android/asset_manager.h>
 #include "common.hpp"
 #include "sfxman.hpp"
+#include <grpc++/grpc++.h>
 
 struct NativeEngineSavedState {
     bool mHasFocus;
@@ -32,6 +33,9 @@ public:
 
     // Returns the NativeActivity object.
     jobject GetActivity();
+
+    // returns the gRPC channel
+    std::shared_ptr<grpc::Channel> GetChannel();
 
 private:
     // variables to track Android lifecycle:
@@ -66,6 +70,9 @@ private:
 
     // is this the first frame we're drawing?
     bool mIsFirstFrame;
+
+    // gRPC channel
+    std::shared_ptr<grpc::Channel> mChannel;
 
     // initialize the display
     bool InitDisplay();

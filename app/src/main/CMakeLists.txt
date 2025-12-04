@@ -136,6 +136,7 @@ add_library(helloc
         cpp/core/vertexbuf.cpp
         cpp/scenes/splash_screen_scene.cpp
         cpp/scenes/title_screen_scene.cpp
+        cpp/scenes/login_scene.cpp
         cpp/scenes/scene.cpp
         cpp/scenes/play_scene.cpp
         cpp/world/tileset.cpp
