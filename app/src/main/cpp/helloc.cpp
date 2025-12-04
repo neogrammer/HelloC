@@ -1,11 +1,77 @@
 
 #include "core/native_engine.hpp"
+#include <android/log.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h> // For close()
+#include <string>
+#include <thread> // To run networking off the main thread
+#include "common.hpp"
+// Define a logging tag for logcat
+#define LOG_TAG_S "MyProtoTest"
+#define LOGIS(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG_S, __VA_ARGS__)
+#define LOGES(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG_S, __VA_ARGS__)
+
+void test_server_connection() {
+    // --- Configuration ---
+    const char* server_ip = "192.168.0.3";
+    const int server_port = 9090;
+
+    LOGI("Attempting to connect to server at %s:%d", server_ip, server_port);
+
+    // --- Create Socket ---
+    // AF_INET is for IPv4
+    // SOCK_STREAM is for a TCP connection
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        LOGES("Socket creation failed.");
+        return;
+    }
+
+    LOGIS("Socket created successfully.");
+
+    // --- Prepare Server Address ---
+    struct sockaddr_in serv_addr;
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(server_port); // Use htons to convert port to network byte order
+
+    // Convert IP address from text to binary format
+    if (inet_pton(AF_INET, server_ip, &serv_addr.sin_addr) <= 0) {
+        LOGES("Invalid address / Address not supported.");
+        close(sock);
+        return;
+    }
+
+    // --- Connect to Server ---
+    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+        // `strerror(errno)` could give more details, but this is a start
+        LOGES("Connection Failed.");
+        close(sock);
+        return;
+    }
+
+    LOGIS("Successfully connected to the server!");
+
+
+
+    // --- Cleanup ---
+    // In a real app, you would now send/receive data with send() and recv().
+    // For this test, we just close the connection immediately.
+    close(sock);
+    LOGIS("Connection closed.");
+}
+
 
 extern "C" {
 void android_main(struct android_app* state);
 };
 
 void android_main(struct android_app* app) {
+
+    std::thread network_thread(test_server_connection);
+    network_thread.detach();
+
     NativeEngine* engine = new NativeEngine(app);
     engine->GameLoop();
     delete engine;

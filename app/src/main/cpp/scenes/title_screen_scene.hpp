@@ -6,6 +6,8 @@
 #include "../core/texture.hpp"
 #include "../core/our_shader.hpp"
 #include "../core/util.hpp"
+#include "../core/native_engine.hpp"
+#include "../third_party/auth/auth_service.grpc.pb.h"
 
 class TitleScreenScene : public Scene {
 public:
